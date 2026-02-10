@@ -684,24 +684,6 @@ function SettingsView({config,setConfig,onSync,syncing,setToast,setBarcodes,setO
           <p className="text-xs">Tap the lock icon in the header to unlock with PIN</p></div>
       </div>
     </section>}
-
-    <section className="rounded-xl p-4 border" style={sectionStyle}>
-      <h2 className="text-sm font-bold uppercase tracking-wider mb-3" style={{color:"var(--text-secondary)"}}>GitHub Pages Setup</h2>
-      <div className="space-y-2 text-sm" style={{color:"var(--text-secondary)"}}>
-        {["Go to github.com → Sign up (free)",
-          "Click the + button (top right) → New Repository",
-          "Name it 'inventory' → check 'Add a README' → Create",
-          "Click 'Add file' → 'Upload files' → drag this index.html",
-          "Go to Settings → Pages → Source: 'main' → Save",
-          "Your URL: https://YOURUSERNAME.github.io/inventory",
-          "Bookmark that URL on operator phones — done"].map((s,i)=>(
-          <div key={i} className="flex gap-2">
-            <span className="shrink-0 w-5 h-5 rounded-full bg-sky-100 dark:bg-sky-900 text-sky-600 dark:text-sky-400 text-xs font-bold flex items-center justify-center">{i+1}</span>
-            <span>{s}</span>
-          </div>
-        ))}
-      </div>
-    </section>
   </div>);
 }
 
