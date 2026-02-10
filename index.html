@@ -47,7 +47,7 @@ body { background: var(--bg-primary); color: var(--text-primary); transition: ba
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useEffect, useCallback, useRef, memo } = React;
+const { useState, useEffect, useCallback, useRef, memo, useMemo } = React;
 
 // ═══ ICONS ═══
 const Icon = ({d, size=20, className=""}) => (
@@ -118,6 +118,18 @@ function moveToDead(item, error) {
   const d = getDeadLetter();
   d.push({ ...item, _failedAt: Date.now(), _error: error || "Max retries exceeded" });
   setDeadLetter(d);
+}
+
+// ═══ SHARED FETCH HELPER (OPT1: single POST path) ═══
+async function sendToGAS(url, form, data, apiKey) {
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({ form, data, apiKey: apiKey || "" }),
+  });
+  const d = await r.json();
+  if (!d.success) throw new Error(d.error || "Server rejected");
+  return d;
 }
 
 // ═══ FORM DRAFT PERSISTENCE ═══
@@ -309,23 +321,22 @@ function ReceivingForm({barcodes,onSubmit,scannerMode}) {
     if(barcode||qty||qa||inspector||notes) saveDraft("receiving",{barcode,qty,qa,inspector,notes});
   },[barcode,qty,qa,inspector,notes]);
 
-  // QR deep link: auto-fill barcode from URL params
-  useEffect(()=>{
-    if(window._qrPrefill) {
-      const pf = window._qrPrefill;
-      setBarcode(pf.barcode);
-      window._qrPrefill = null;
-      // Auto-lookup after barcodes are loaded
-      setTimeout(()=>{ if(pf.barcode) lookup(pf.barcode); }, 200);
-    }
-  },[barcodes.length]); // re-run when barcodes load
-
   const lookup=useCallback(bc=>{
     const b=barcodes.find(x=>x.barcodeId===bc);
     if(!b){setError("Barcode not found");setLooked(null);return;}
     if(b.status!=="AWAITING"){setError(`Already ${b.status}`);setLooked(null);return;}
     setLooked(b);setError("");
   },[barcodes]);
+
+  // QR deep link: auto-fill barcode from URL params (must be after lookup)
+  useEffect(()=>{
+    if(window._qrPrefill) {
+      const pf = window._qrPrefill;
+      setBarcode(pf.barcode);
+      window._qrPrefill = null;
+      setTimeout(()=>{ if(pf.barcode) lookup(pf.barcode); }, 200);
+    }
+  },[barcodes.length, lookup]);
 
   const scan=()=>{if(barcode.trim())lookup(barcode.trim());};
   const reset=()=>{setBarcode("");setQty("");setQa("");setInspector("");setNotes("");setLooked(null);setError("");clearDraft("receiving");};
@@ -597,11 +608,14 @@ function SettingsView({config,setConfig,onSync,syncing,setToast,setBarcodes,setO
         <button onClick={()=>{if(!nOo.poNumber||!nOo.partNo||!nOo.qtyOrdered)return;
           const id=genUUID("PLT-");
           const seq=barcodes.length+1;
-          setOrders(p=>[...p,{...nOo,qtyOrdered:Number(nOo.qtyOrdered),qtyReceived:0,status:"AWAITING"}]);
+          // BUG1: Only add order row if PO is new (multi-pallet: same PO, new barcode)
+          const existingPO=orders.find(o=>o.poNumber===nOo.poNumber);
+          if(!existingPO) setOrders(p=>[...p,{...nOo,qtyOrdered:Number(nOo.qtyOrdered),qtyReceived:0,status:"AWAITING"}]);
           setBarcodes(p=>[...p,{barcodeId:id,seq,partNo:nOo.partNo,poNumber:nOo.poNumber,lotNo:nOo.lotNo,status:"AWAITING",qaStatus:"",qtyReceived:0,location:"",receivedDate:null,stockedDate:null,currentQty:0}]);
           postToSheet("register",{barcode:id,poNumber:nOo.poNumber,vendor:nOo.vendor,partNo:nOo.partNo,lotNo:nOo.lotNo,qtyOrdered:nOo.qtyOrdered});
+          const pallets=barcodes.filter(b=>b.poNumber===nOo.poNumber).length+1;
           setNOo({poNumber:"",vendor:"",partNo:"",lotNo:"",qtyOrdered:""});setShowOo(false);
-          setToast({msg:`PO ${nOo.poNumber} + ${id} → registered`,type:"success"});}}
+          setToast({msg:existingPO?`Pallet ${pallets} → ${id} added to PO ${nOo.poNumber}`:`PO ${nOo.poNumber} + ${id} → registered`,type:"success"});}}
           className="w-full py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-bold">REGISTER PO + BARCODE</button>
       </div>}
       {showBc&&<div className="space-y-2 border-t pt-3 slide-up" style={{borderColor:"var(--border)"}}>
@@ -743,19 +757,11 @@ function App() {
   useEffect(()=>{if(!loading)lsSet("inv-config",config);},[config,loading]);
   useEffect(()=>{if(!loading)lsSet("inv-admin",admin?true:null);},[admin,loading]);
 
-  // ═══ FIX #2: Remove no-cors. Proper error handling. Queue on failure. ═══
-  // ═══ FIX #7: Include API key in requests. ═══
+  // ═══ POST to Apps Script (queues on failure) ═══
   const postToSheet=useCallback(async(form,data)=>{
     if(!config.appsScriptUrl) return false;
     try{
-      const payload = { form, data, apiKey: config.apiKey || "" };
-      const r = await fetch(config.appsScriptUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },  // avoids CORS preflight
-        body: JSON.stringify(payload),
-      });
-      const d = await r.json();
-      if(!d.success) throw new Error(d.error || "Server rejected");
+      await sendToGAS(config.appsScriptUrl, form, data, config.apiKey);
       return true;
     } catch(e) {
       console.warn("Sheet post failed, queuing:", e.message);
@@ -765,7 +771,7 @@ function App() {
     }
   },[config.appsScriptUrl, config.apiKey]);
 
-  // ═══ FIX #4: Background queue flush ═══
+  // ═══ Background queue flush (OPT1: uses sendToGAS, OPT5: tracks dead count per cycle) ═══
   useEffect(()=>{
     if(loading) return;
     const flush = async () => {
@@ -774,61 +780,48 @@ function App() {
       if(q.length === 0) return;
 
       const remaining = [];
+      let deadThisCycle = 0;
       for(const item of q) {
         try {
-          const payload = { form: item.form, data: item.data, apiKey: config.apiKey || "" };
-          const r = await fetch(config.appsScriptUrl, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain" },
-            body: JSON.stringify(payload),
-          });
-          const d = await r.json();
-          if(!d.success) throw new Error(d.error);
+          await sendToGAS(config.appsScriptUrl, item.form, item.data, config.apiKey);
         } catch(e) {
           item._retries = (item._retries || 0) + 1;
           if(item._retries < MAX_RETRIES) {
             remaining.push(item);
           } else {
             moveToDead(item, e.message);
+            deadThisCycle++;
           }
         }
       }
       setQueue(remaining);
       setPendingCount(remaining.length);
-      const deadCount = getDeadLetter().length;
-      const uploaded = q.length - remaining.length - (deadCount > 0 ? 1 : 0);
+      const uploaded = q.length - remaining.length - deadThisCycle;
       if(uploaded > 0) {
-        setToast({msg:`Uploaded ${uploaded} pending transaction(s)${deadCount > 0 ? ` · ${deadCount} failed` : ""}`,type: deadCount > 0 ? "warning" : "success"});
-      } else if(deadCount > 0 && remaining.length < q.length) {
-        setToast({msg:`${q.length - remaining.length} item(s) moved to Failed — review in Settings`,type:"error"});
+        setToast({msg:`Uploaded ${uploaded} pending transaction(s)${deadThisCycle > 0 ? ` · ${deadThisCycle} failed` : ""}`,type: deadThisCycle > 0 ? "warning" : "success"});
+      } else if(deadThisCycle > 0) {
+        setToast({msg:`${deadThisCycle} item(s) moved to Failed — review in Settings`,type:"error"});
       }
     };
     const iv = setInterval(flush, 30000);
-    flush(); // run immediately on mount
+    flush();
     return () => clearInterval(iv);
   },[loading, config.appsScriptUrl, config.apiKey]);
 
-  // ═══ FIX #1: Sync with merge logic ═══
+  // ═══ Sync: flush queue then pull server state (OPT1: sendToGAS, BUG4: replace txns) ═══
   const onSync=useCallback(async()=>{
     if(!config.appsScriptUrl){setToast({msg:"No URL configured",type:"error"});return;}
 
     setSyncing(true);
 
-    // Step 1: Flush pending queue before pulling server state
+    // Step 1: Flush pending queue
     const q = getQueue();
     if(q.length > 0) {
       setToast({msg:`Uploading ${q.length} pending...`,type:"info"});
       const remaining = [];
       for(const item of q) {
         try {
-          const payload = { form: item.form, data: item.data, apiKey: config.apiKey || "" };
-          const r = await fetch(config.appsScriptUrl, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain" },
-            body: JSON.stringify(payload),
-          });
-          const d = await r.json();
-          if(!d.success) throw new Error(d.error);
+          await sendToGAS(config.appsScriptUrl, item.form, item.data, config.apiKey);
         } catch(e) {
           item._retries = (item._retries || 0) + 1;
           if(item._retries < MAX_RETRIES) {
@@ -847,14 +840,14 @@ function App() {
       }
     }
 
-    // Step 2: Pull server state and merge
+    // Step 2: Pull server state
     try{
       const params = new URLSearchParams({action:"sync"});
       if(config.apiKey) params.set("apiKey", config.apiKey);
       const r=await fetch(config.appsScriptUrl+"?"+params.toString());
       const d=await r.json();
       if(d.success){
-        // Merge orders: server wins for known POs, keep local-only POs
+        // Orders: server wins for known POs, keep local-only
         if(d.openOrders?.length) {
           setOrders(prev => {
             const serverPOs = new Set(d.openOrders.map(o => o.poNumber));
@@ -862,7 +855,7 @@ function App() {
             return [...d.openOrders, ...localOnly];
           });
         }
-        // Merge barcodes: server wins for known IDs, keep local-only barcodes
+        // Barcodes: server wins for known IDs, keep local-only
         if(d.barcodes?.length) {
           setBarcodes(prev => {
             const serverBCs = new Set(d.barcodes.map(b => b.barcodeId));
@@ -870,19 +863,17 @@ function App() {
             return [...d.barcodes, ...localOnly];
           });
         }
-        // Merge txns: server wins for known IDs, keep local-only txns
+        // BUG4 FIX: Txns — server is source of truth, replace entirely.
+        // Local optimistic txns use different ID format than server, so merge
+        // by txnId never works. Since queue is flushed above, all local txns
+        // that succeeded are now on the server. Just take server state.
         if(d.transactions?.length) {
-          const serverIds = new Set(d.transactions.map(t=>t.txnId));
-          setTxns(prev => {
-            const localOnly = prev.filter(t => !serverIds.has(t.id) && !serverIds.has(t.txnId));
-            const serverTxns = d.transactions.map(t => ({
-              id: t.txnId, txnId: t.txnId, source: t.source, timestamp: t.timestamp,
-              type: t.type, barcode: t.barcode, partNo: t.partNo, qty: t.qty,
-              location: t.location, reference: t.reference, operator: t.operator,
-              qaStatus: t.qaStatus, notes: t.notes,
-            }));
-            return [...serverTxns, ...localOnly];
-          });
+          setTxns(d.transactions.map(t => ({
+            id: t.txnId, txnId: t.txnId, source: t.source, timestamp: t.timestamp,
+            type: t.type, barcode: t.barcode, partNo: t.partNo, qty: t.qty,
+            location: t.location, reference: t.reference, operator: t.operator,
+            qaStatus: t.qaStatus, notes: t.notes,
+          })));
         }
         setToast({msg:`Synced: ${d.openOrders?.length||0} orders, ${d.barcodes?.length||0} barcodes, ${d.transactions?.length||0} txns`,type:"success"});
       } else setToast({msg:"Sync failed: "+(d.error||"unknown"),type:"error"});
@@ -926,13 +917,17 @@ function App() {
   const depleted=barcodes.filter(b=>b.status==="DEPLETED").length;
   const urgentCount=queue.filter(q=>q.prio.label==="URGENT").length;
 
-  const inventoryByPart={};
-  barcodes.filter(b=>b.status==="IN STOCK"||b.status==="RECEIVED").forEach(b=>{
-    if(!inventoryByPart[b.partNo])inventoryByPart[b.partNo]={partNo:b.partNo,totalQty:0,barcodes:[],locations:new Set()};
-    inventoryByPart[b.partNo].totalQty+=(b.currentQty||0);
-    inventoryByPart[b.partNo].barcodes.push(b);
-    if(b.location)inventoryByPart[b.partNo].locations.add(b.location);
-  });
+  // OPT4: memoize so issuing/inventory views don't recompute on unrelated state changes
+  const inventoryByPart=useMemo(()=>{
+    const map={};
+    barcodes.filter(b=>b.status==="IN STOCK"||b.status==="RECEIVED").forEach(b=>{
+      if(!map[b.partNo])map[b.partNo]={partNo:b.partNo,totalQty:0,barcodes:[],locations:new Set()};
+      map[b.partNo].totalQty+=(b.currentQty||0);
+      map[b.partNo].barcodes.push(b);
+      if(b.location)map[b.partNo].locations.add(b.location);
+    });
+    return map;
+  },[barcodes]);
 
   const verifyPin=()=>{
     if(pin===(config.adminPin||"1234")){setAdmin(true);setShowPin(false);setPin("");setToast({msg:"Admin unlocked",type:"success"});}
