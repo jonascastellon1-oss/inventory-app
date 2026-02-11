@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Nox Inventory</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: { extend: { fontFamily: { sans: ['Outfit', 'system-ui'], mono: ['IBM Plex Mono', 'monospace'] } } }
+};
+</script>
+<style>
+* { -webkit-tap-highlight-color: transparent; }
+html, body, #root { height: 100%; margin: 0; }
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+input[type=number] { -moz-appearance: textfield; }
+@keyframes pulseGlow { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+.pulse-glow { animation: pulseGlow 1.5s ease-in-out infinite; }
+.slide-up { animation: slideUp 0.25s ease-out; }
+@keyframes slideUp { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+:root {
+  --bg-primary: #0a0a0a; --bg-secondary: #111111; --bg-card: #161616;
+  --border: #2a2a2a; --text-primary: #f0f0f0; --text-secondary: #999999;
+  --text-muted: #555555; --input-bg: #1c1c1c; --input-border: #333333;
+  --nav-bg: #111111; --header-bg: #0a0a0a;
+}
+.light {
+  --bg-primary: #f5f5f0; --bg-secondary: #eaeae5; --bg-card: #ffffff;
+  --border: #d4d4cc; --text-primary: #1a1a1a; --text-secondary: #555555;
+  --text-muted: #888888; --input-bg: #eaeae5; --input-border: #c4c4bc;
+  --nav-bg: #f5f5f0; --header-bg: #f5f5f0;
+}
+body { background: var(--bg-primary); color: var(--text-primary); transition: background 0.2s, color 0.2s; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef, memo, useMemo } = React;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ICONS
+// ═══════════════════════════════════════════════════════════════════════════
+const Icon = ({d, size=20, className=""}) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{d}</svg>
+);
+const PackageIcon = (p) => <Icon {...p} d={<><path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>} />;
+const ClipboardIcon = (p) => <Icon {...p} d={<><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 14l2 2 4-4"/></>} />;
+const WarehouseIcon = (p) => <Icon {...p} d={<><path d="M22 8.35V20a2 2 0 01-2 2H4a2 2 0 01-2-2V8.35A2 2 0 013.26 6.5l8-3.2a2 2 0 011.48 0l8 3.2A2 2 0 0122 8.35z"/><path d="M6 18h12M6 14h12"/></>} />;
+const ArrowsIcon = (p) => <Icon {...p} d={<><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></>} />;
+const ChartIcon = (p) => <Icon {...p} d={<><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></>} />;
+const GearIcon = (p) => <Icon {...p} d={<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></>} />;
+const AlertIcon = (p) => <Icon {...p} d={<><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>} />;
+const CheckIcon = (p) => <Icon {...p} d={<><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>} />;
+const XIcon = (p) => <Icon {...p} d={<><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></>} />;
+const ClockIcon = (p) => <Icon {...p} d={<><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>} />;
+const ScanIcon = (p) => <Icon {...p} d={<><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/></>} />;
+const SearchIcon = (p) => <Icon {...p} d={<><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>} />;
+const RefreshIcon = (p) => <Icon {...p} d={<><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></>} />;
+const WifiIcon = (p) => <Icon {...p} d={<><path d="M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></>} />;
+const WifiOffIcon = (p) => <Icon {...p} d={<><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0119 12.55"/><path d="M5 12.55a10.94 10.94 0 015.17-2.39"/><path d="M10.71 5.05A16 16 0 0122.56 9"/><path d="M1.42 9a15.91 15.91 0 014.7-2.88"/><path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></>} />;
+const MapPinIcon = (p) => <Icon {...p} d={<><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></>} />;
+const TrashIcon = (p) => <Icon {...p} d={<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></>} />;
+const ChevronIcon = (p) => <Icon {...p} d={<polyline points="9 18 15 12 9 6"/>} />;
+const LockIcon = (p) => <Icon {...p} d={<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></>} />;
+const UnlockIcon = (p) => <Icon {...p} d={<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 019.9-1"/></>} />;
+const SunIcon = (p) => <Icon {...p} d={<><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></>} />;
+const MoonIcon = (p) => <Icon {...p} d={<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>} />;
+const DatabaseIcon = (p) => <Icon {...p} d={<><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></>} />;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOCAL STORAGE (config only - no data)
+// ═══════════════════════════════════════════════════════════════════════════
+function lsGet(key) { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } }
+function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════
+function sanitize(s) { return s?.replace(/[<>"'&]/g,'').trim().substring(0,500)||''; }
+function timeSince(d) { if(!d) return null; return (Date.now()-new Date(d).getTime())/3600000; }
+async function fetchWithRetry(url, options, retries=3) {
+  for(let i=0;i<retries;i++){
+    try{ const r=await fetch(url,options); if(r.ok) return r; if(r.status>=400&&r.status<500) throw new Error(`Request failed: ${r.status}`); }
+    catch(e){ if(i===retries-1) throw e; }
+    await new Promise(r=>setTimeout(r,1000*Math.pow(2,i)));
+  }
+}
+function fmtDate(d) { if(!d) return "—"; const dt=new Date(d); return dt.toLocaleDateString("en-US",{month:"short",day:"numeric"})+" "+dt.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}); }
+function prio(hrs) {
+  if(hrs==null) return {label:"—",color:"text-slate-500",bg:"bg-slate-100 dark:bg-slate-800"};
+  if(hrs>48) return {label:"URGENT",color:"text-red-600 dark:text-red-400",bg:"bg-red-50 border border-red-300 dark:bg-red-950 dark:border-red-700"};
+  if(hrs>24) return {label:"HIGH",color:"text-amber-600 dark:text-amber-400",bg:"bg-amber-50 border border-amber-300 dark:bg-amber-950 dark:border-amber-700"};
+  return {label:"NORMAL",color:"text-emerald-600 dark:text-emerald-400",bg:"bg-emerald-50 border border-emerald-300 dark:bg-emerald-950 dark:border-emerald-700"};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AIRTABLE API LAYER (with pagination + retry)
+// ═══════════════════════════════════════════════════════════════════════════
+class AirtableAPI {
+  constructor(baseId, apiKey) {
+    this.baseId = baseId;
+    this.apiKey = apiKey;
+    this.baseUrl = `https://api.airtable.com/v0/${baseId}`;
+  }
+
+  headers() {
+    return {
+      'Authorization': `Bearer ${this.apiKey}`,
+      'Content-Type': 'application/json'
+    };
+  }
+
+  async get(table, options = {}) {
+    let all = [], offset = null;
+    do {
+      let url = `${this.baseUrl}/${encodeURIComponent(table)}`;
+      const params = new URLSearchParams();
+      if (options.filter) params.set('filterByFormula', options.filter);
+      if (options.sort) params.set('sort[0][field]', options.sort.field);
+      if (options.sortDir) params.set('sort[0][direction]', options.sortDir);
+      if (options.maxRecords) params.set('maxRecords', options.maxRecords);
+      if (offset) params.set('offset', offset);
+      if (params.toString()) url += '?' + params.toString();
+      
+      const r = await fetchWithRetry(url, { headers: this.headers() });
+      const data = await r.json();
+      all = all.concat(data.records.map(rec => ({ _id: rec.id, ...rec.fields })));
+      offset = data.offset;
+      if (options.maxRecords) break;
+    } while (offset);
+    return all;
+  }
+
+  async create(table, fields) {
+    const r = await fetchWithRetry(`${this.baseUrl}/${encodeURIComponent(table)}`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ fields })
+    });
+    const data = await r.json();
+    return { _id: data.id, ...data.fields };
+  }
+
+  async update(table, recordId, fields) {
+    const r = await fetchWithRetry(`${this.baseUrl}/${encodeURIComponent(table)}/${recordId}`, {
+      method: 'PATCH',
+      headers: this.headers(),
+      body: JSON.stringify({ fields })
+    });
+    const data = await r.json();
+    return { _id: data.id, ...data.fields };
+  }
+
+  async findOne(table, filter) {
+    const results = await this.get(table, { filter, maxRecords: 1 });
+    return results[0] || null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOCAL API LAYER (localStorage mock for testing without Airtable)
+// ═══════════════════════════════════════════════════════════════════════════
+class LocalAPI {
+  constructor() { this._id = Date.now(); }
+
+  _read(table) { return JSON.parse(localStorage.getItem(`inv-local-${table}`)||'[]'); }
+  _write(table, data) { localStorage.setItem(`inv-local-${table}`, JSON.stringify(data)); }
+  _genId() { return 'rec' + (this._id++) + Math.random().toString(36).substr(2,4); }
+
+  async get(table, options = {}) {
+    await new Promise(r=>setTimeout(r,50)); // simulate latency
+    let rows = this._read(table);
+    if (options.filter) {
+      const f = options.filter;
+      // NOT({Field}="Value")
+      const notMatch = f.match(/^NOT\(\{(\w+)\}="([^"]+)"\)$/);
+      if (notMatch) {
+        rows = rows.filter(r => r[notMatch[1]] !== notMatch[2]);
+      } else {
+        // OR({Field}="A",{Field}="B",...)
+        const orMatch = f.match(/^OR\((.+)\)$/);
+        if (orMatch) {
+          const clauses = orMatch[1].match(/\{(\w+)\}="([^"]+)"/g) || [];
+          const pairs = clauses.map(c => { const m = c.match(/\{(\w+)\}="([^"]+)"/); return m ? [m[1],m[2]] : null; }).filter(Boolean);
+          rows = rows.filter(r => pairs.some(([k,v]) => r[k] === v));
+        } else {
+          // Simple: {Field}="Value"
+          const m = f.match(/\{(\w+)\}="([^"]+)"/);
+          if (m) rows = rows.filter(r => r[m[1]] === m[2]);
+        }
+      }
+    }
+    if (options.sort) {
+      const f = options.sort.field, dir = options.sortDir === 'desc' ? -1 : 1;
+      rows.sort((a,b) => (a[f]||'') > (b[f]||'') ? dir : -dir);
+    }
+    if (options.maxRecords) rows = rows.slice(0, options.maxRecords);
+    return rows;
+  }
+
+  async create(table, fields) {
+    await new Promise(r=>setTimeout(r,50));
+    const rec = { _id: this._genId(), ...fields };
+    const rows = this._read(table);
+    rows.push(rec);
+    this._write(table, rows);
+    return rec;
+  }
+
+  async update(table, recordId, fields) {
+    await new Promise(r=>setTimeout(r,50));
+    const rows = this._read(table);
+    const idx = rows.findIndex(r => r._id === recordId);
+    if (idx === -1) throw new Error('Record not found: ' + recordId);
+    rows[idx] = { ...rows[idx], ...fields };
+    this._write(table, rows);
+    return rows[idx];
+  }
+
+  async findOne(table, filter) {
+    const results = await this.get(table, { filter, maxRecords: 1 });
+    return results[0] || null;
+  }
+
+  loadSampleData() {
+    const orders = [
+      {_id:this._genId(),PO_Number:"PO-2026-001",Vendor:"Steelworks Inc",Part_No:"STEEL-PLATE-4X8",Lot_No:"LOT-2026-001",Qty_Ordered:1000},
+      {_id:this._genId(),PO_Number:"PO-2026-002",Vendor:"FoamCo Supply",Part_No:"FOAM-4X8",Lot_No:"LOT-2026-002",Qty_Ordered:500},
+      {_id:this._genId(),PO_Number:"PO-2026-003",Vendor:"Allied Metals",Part_No:"ALU-SHEET-3X6",Lot_No:"LOT-2026-003",Qty_Ordered:200},
+      {_id:this._genId(),PO_Number:"PO-2026-004",Vendor:"Rubber Dynamics",Part_No:"RUBBER-GASKET-12",Lot_No:"LOT-2026-004",Qty_Ordered:2000},
+      {_id:this._genId(),PO_Number:"PO-2026-005",Vendor:"Steelworks Inc",Part_No:"STEEL-ROD-1IN",Lot_No:"LOT-2026-005",Qty_Ordered:800},
+    ];
+    this._write("ORDERS", orders);
+
+    const now = Date.now();
+    const hr = 3600000;
+    const barcodes = [
+      {_id:this._genId(),Barcode_ID:"PLT-00001",Part_No:"STEEL-PLATE-4X8",Order:"PO-2026-001",Lot_No:"LOT-2026-001",Status:"AWAITING",QA_Status:"",Qty_Received:0,Current_Qty:0,Location:"",Received_Date:null,Stocked_Date:null},
+      {_id:this._genId(),Barcode_ID:"PLT-00002",Part_No:"STEEL-PLATE-4X8",Order:"PO-2026-001",Lot_No:"LOT-2026-001",Status:"AWAITING",QA_Status:"",Qty_Received:0,Current_Qty:0,Location:"",Received_Date:null,Stocked_Date:null},
+      {_id:this._genId(),Barcode_ID:"PLT-00003",Part_No:"FOAM-4X8",Order:"PO-2026-002",Lot_No:"LOT-2026-002",Status:"RECEIVED",QA_Status:"PASS",Qty_Received:500,Current_Qty:500,Location:"",Received_Date:new Date(now-52*hr).toISOString(),Stocked_Date:null},
+      {_id:this._genId(),Barcode_ID:"PLT-00004",Part_No:"ALU-SHEET-3X6",Order:"PO-2026-003",Lot_No:"LOT-2026-003",Status:"RECEIVED",QA_Status:"PASS",Qty_Received:200,Current_Qty:200,Location:"",Received_Date:new Date(now-6*hr).toISOString(),Stocked_Date:null},
+      {_id:this._genId(),Barcode_ID:"PLT-00005",Part_No:"RUBBER-GASKET-12",Order:"PO-2026-004",Lot_No:"LOT-2026-004",Status:"IN STOCK",QA_Status:"PASS",Qty_Received:2000,Current_Qty:1200,Location:"A-02-01",Received_Date:new Date(now-120*hr).toISOString(),Stocked_Date:new Date(now-118*hr).toISOString()},
+      {_id:this._genId(),Barcode_ID:"PLT-00006",Part_No:"RUBBER-GASKET-12",Order:"PO-2026-004",Lot_No:"LOT-2026-004",Status:"IN STOCK",QA_Status:"PASS",Qty_Received:800,Current_Qty:800,Location:"A-02-02",Received_Date:new Date(now-96*hr).toISOString(),Stocked_Date:new Date(now-94*hr).toISOString()},
+      {_id:this._genId(),Barcode_ID:"PLT-00007",Part_No:"STEEL-ROD-1IN",Order:"PO-2026-005",Lot_No:"LOT-2026-005",Status:"IN STOCK",QA_Status:"PASS",Qty_Received:800,Current_Qty:350,Location:"B-01-03",Received_Date:new Date(now-200*hr).toISOString(),Stocked_Date:new Date(now-198*hr).toISOString()},
+      {_id:this._genId(),Barcode_ID:"PLT-00008",Part_No:"FOAM-4X8",Order:"PO-2026-002",Lot_No:"LOT-2026-002",Status:"DEPLETED",QA_Status:"PASS",Qty_Received:300,Current_Qty:0,Location:"C-03-01",Received_Date:new Date(now-300*hr).toISOString(),Stocked_Date:new Date(now-298*hr).toISOString()},
+    ];
+    this._write("BARCODES", barcodes);
+
+    const txns = [
+      {_id:this._genId(),Source:"RECEIVING",Timestamp:new Date(now-52*hr).toISOString(),Type:"IN",Barcode:"PLT-00003",Part_No:"FOAM-4X8",Qty:500,Location:"DOCK",Reference:"PO-2026-002",Operator:"RCV-001",QA_Status:"PASS",Notes:""},
+      {_id:this._genId(),Source:"RECEIVING",Timestamp:new Date(now-6*hr).toISOString(),Type:"IN",Barcode:"PLT-00004",Part_No:"ALU-SHEET-3X6",Qty:200,Location:"DOCK",Reference:"PO-2026-003",Operator:"RCV-001",QA_Status:"PASS",Notes:""},
+      {_id:this._genId(),Source:"STOCKROOM",Timestamp:new Date(now-118*hr).toISOString(),Type:"LOCATION",Barcode:"PLT-00005",Part_No:"RUBBER-GASKET-12",Qty:0,Location:"A-02-01",Reference:"",Operator:"STK-001",Notes:""},
+      {_id:this._genId(),Source:"STOCKROOM",Timestamp:new Date(now-94*hr).toISOString(),Type:"LOCATION",Barcode:"PLT-00006",Part_No:"RUBBER-GASKET-12",Qty:0,Location:"A-02-02",Reference:"",Operator:"STK-001",Notes:""},
+      {_id:this._genId(),Source:"PRODUCTION",Timestamp:new Date(now-48*hr).toISOString(),Type:"OUT",Barcode:"PLT-00005",Part_No:"RUBBER-GASKET-12",Qty:-800,Location:"",Reference:"WO-2026-010",Operator:"PRD-001",Notes:""},
+      {_id:this._genId(),Source:"PRODUCTION",Timestamp:new Date(now-24*hr).toISOString(),Type:"OUT",Barcode:"PLT-00007",Part_No:"STEEL-ROD-1IN",Qty:-450,Location:"",Reference:"WO-2026-011",Operator:"PRD-001",Notes:""},
+    ];
+    this._write("TRANSACTIONS", txns);
+    return { orders: orders.length, barcodes: barcodes.length, txns: txns.length };
+  }
+
+  clearData() {
+    ["ORDERS","BARCODES","TRANSACTIONS","MATERIALS"].forEach(t=>localStorage.removeItem(`inv-local-${t}`));
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THEME HOOK
+// ═══════════════════════════════════════════════════════════════════════════
+function useTheme() {
+  const [dark, setDark] = useState(() => lsGet("inv-theme") !== "light");
+  useEffect(() => {
+    document.body.classList.toggle("dark", dark);
+    document.body.classList.toggle("light", !dark);
+    lsSet("inv-theme", dark ? "dark" : "light");
+  }, [dark]);
+  return { dark, toggle: () => setDark(d => !d) };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ONLINE STATUS HOOK
+// ═══════════════════════════════════════════════════════════════════════════
+function useOnline() {
+  const [online, setOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
+  }, []);
+  return online;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REUSABLE COMPONENTS
+// ═══════════════════════════════════════════════════════════════════════════
+function ScanInput({label,value,onChange,onSubmit,placeholder,IconEl,autoFocus,disabled,readOnly,scannerMode,inputRef}) {
+  const localRef=useRef(null);
+  const ref=inputRef||localRef;
+  const hk=e=>{if(e.key==="Enter"&&value?.trim()){e.preventDefault();onSubmit?.();}};
+  useEffect(()=>{if(autoFocus&&ref.current)ref.current.focus();},[autoFocus]);
+  return (<div className="mb-3">
+    <label className="block text-xs font-bold uppercase tracking-wider mb-1" style={{color:"var(--text-muted)"}}>{label}</label>
+    <div className="relative">
+      <input ref={ref} type="text" value={value||""} onChange={e=>onChange(e.target.value)} onKeyDown={hk}
+        placeholder={placeholder} disabled={disabled} readOnly={readOnly}
+        inputMode={scannerMode ? "none" : undefined}
+        className={`w-full py-3 px-4 pr-12 rounded-lg text-lg font-mono tracking-wide outline-none transition-all ${
+          readOnly?"bg-emerald-50 dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-slate-600":
+          disabled?"opacity-50 border":
+          "border-2 focus:border-orange-500 focus:ring-1 focus:ring-orange-500"}`}
+        style={!readOnly&&!disabled?{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--input-border)"}:{}} />
+      {IconEl&&<div className="absolute right-3 top-1/2 -translate-y-1/2" style={{color:"var(--text-muted)"}}><IconEl size={20}/></div>}
+    </div>
+  </div>);
+}
+
+function NumInput({label,value,onChange,max,min=0}) {
+  return (<div className="mb-3">
+    <label className="block text-xs font-bold uppercase tracking-wider mb-1" style={{color:"var(--text-muted)"}}>
+      {label}{max!=null&&<span className="ml-2 opacity-60">(max: {max})</span>}
+    </label>
+    <input type="text" inputMode="numeric" pattern="[0-9]*" value={value} onChange={e=>{const v=e.target.value.replace(/[^0-9]/g,"");onChange(v);}}
+      className="w-full py-3 px-4 rounded-lg text-2xl font-bold text-center border-2 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
+      style={{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--input-border)"}} />
+  </div>);
+}
+
+function Toast({msg,type,onClose}) {
+  useEffect(()=>{const t=setTimeout(onClose,3500);return()=>clearTimeout(t);},[onClose]);
+  const c={success:"bg-emerald-600",error:"bg-red-600",info:"bg-orange-600",warning:"bg-amber-600"};
+  return (<div className={`fixed top-4 left-4 right-4 z-50 ${c[type]||c.info} rounded-xl px-5 py-4 shadow-2xl flex items-center gap-3 slide-up text-white`}>
+    {type==="success"?<CheckIcon size={24}/>:type==="error"?<XIcon size={24}/>:<AlertIcon size={24}/>}
+    <span className="font-bold text-base flex-1">{msg}</span>
+    <button onClick={onClose} className="text-white/70 hover:text-white text-xl font-bold">✕</button>
+  </div>);
+}
+
+function Spinner({size=24}) {
+  return <RefreshIcon size={size} className="animate-spin text-orange-500"/>;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════════════════
+const DashboardView = memo(function DashboardView({txns,queue,awaiting,inStock,issuedToday,urgentCount,loading}) {
+  const kpis=[
+    {label:"Awaiting Receipt",val:awaiting,color:"text-amber-600 dark:text-amber-400",bar:"bg-amber-500"},
+    {label:"Need Stocking",val:queue.length,color:urgentCount>0?"text-red-600 dark:text-red-400":"text-orange-600 dark:text-orange-400",bar:urgentCount>0?"bg-red-500 pulse-glow":"bg-orange-500"},
+    {label:"In Stock",val:inStock,color:"text-emerald-600 dark:text-emerald-400",bar:"bg-emerald-500"},
+    {label:"Issued Today",val:issuedToday,color:"text-blue-600 dark:text-blue-400",bar:"bg-blue-500"},
+  ];
+
+  if(loading) return <div className="flex items-center justify-center py-20"><Spinner size={48}/></div>;
+
+  return (<div className="p-4 space-y-4">
+    <div className="grid grid-cols-2 gap-3">
+      {kpis.map(k=>(<div key={k.label} className="rounded-xl p-3 border" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
+        <div className={`text-3xl font-bold font-mono ${k.color}`}>{k.val}</div>
+        <div className="text-[10px] uppercase tracking-wide mt-1" style={{color:"var(--text-muted)"}}>{k.label}</div>
+        <div className={`h-1 rounded-full mt-2 ${k.bar}`} style={{width:`${Math.min(k.val*10,100)}%`}}/>
+      </div>))}
+    </div>
+    
+    {urgentCount>0?<div className="rounded-xl p-4 bg-red-50 dark:bg-red-950 border border-red-300 dark:border-red-700 slide-up">
+      <div className="flex items-center gap-3">
+        <AlertIcon size={24} className="text-red-600 dark:text-red-400 pulse-glow"/>
+        <div><div className="font-bold text-red-700 dark:text-red-300">{urgentCount} URGENT</div>
+          <div className="text-xs text-red-600 dark:text-red-400">Pallets on dock &gt;48hrs — stock immediately</div></div>
+      </div>
+    </div>
+    :<div className="rounded-xl p-4 border flex items-center gap-4" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
+      <div className={`text-4xl font-bold font-mono ${urgentCount>0?"text-red-600 dark:text-red-400":"text-orange-600 dark:text-orange-400"}`}>{queue.length}</div>
+      <div><div className="text-sm font-bold" style={{color:"var(--text-primary)"}}>Items to Stock</div><div className="text-xs" style={{color:"var(--text-muted)"}}>Check queue below — tap Stock tab to begin</div></div>
+    </div>}
+    
+    {queue.length>0&&<div>
+      <h2 className="text-sm font-bold uppercase tracking-wider mb-3 flex items-center gap-2" style={{color:"var(--text-secondary)"}}><ClockIcon size={14}/> Stocking Queue</h2>
+      <div className="space-y-2">{queue.slice(0,10).map(q=>(<div key={q.Barcode_ID||q.barcodeId} className={`rounded-lg p-3 flex items-center gap-3 ${q.prio.bg}`}>
+        <div className="flex-1 min-w-0">
+          <div className="font-mono font-bold text-sm truncate" style={{color:"var(--text-primary)"}}>{q.Barcode_ID||q.barcodeId}</div>
+          <div className="text-xs truncate" style={{color:"var(--text-muted)"}}>{q.Part_No||q.partNo}</div>
+        </div>
+        <div className="text-right shrink-0">
+          <div className={`text-xs font-bold ${q.prio.color}`}>{q.prio.label}</div>
+          <div className="text-xs" style={{color:"var(--text-muted)"}}>{q.hrsStaging!=null?q.hrsStaging.toFixed(1)+"h":"—"}</div>
+        </div>
+        <div className="text-xs font-mono" style={{color:"var(--text-muted)"}}>{q.Qty_Received||q.qtyReceived||"—"}</div>
+      </div>))}</div>
+    </div>}
+    
+    <div>
+      <h2 className="text-sm font-bold uppercase tracking-wider mb-3" style={{color:"var(--text-secondary)"}}>Recent Activity</h2>
+      <div className="space-y-1.5">{txns.slice(-15).reverse().map((t,i)=>{
+        const bc = t.Barcode_Display||t.barcode_display||(Array.isArray(t.Barcode)?null:t.Barcode)||t.barcode||"—";
+        const detail = (t.Type||t.type)==="LOCATION"
+          ? `Stocked → ${t.Location||t.location||"?"}`
+          : `${(t.Type||t.type)==="IN"?"Received":"Issued"} ${Math.abs(t.Qty||t.qty||0)}`;
+        return (<div key={t._id||t.id||i} className="rounded-lg px-3 py-2 flex items-center gap-3 border" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
+        <div className={`w-2 h-2 rounded-full shrink-0 ${t.Type==="IN"||t.type==="IN"?"bg-emerald-500":t.Type==="LOCATION"||t.type==="LOCATION"?"bg-orange-500":"bg-red-500"}`}/>
+        <div className="flex-1 min-w-0">
+          <span className="font-mono text-xs" style={{color:"var(--text-secondary)"}}>{bc}</span>
+          <span className="mx-1 opacity-30">•</span>
+          <span className="text-xs" style={{color:"var(--text-muted)"}}>{detail}</span>
+        </div>
+        <span className="text-[10px] shrink-0" style={{color:"var(--text-muted)"}}>{fmtDate(t.Timestamp||t.timestamp)}</span>
+      </div>);})}
+      {txns.length===0&&<p className="text-center py-6 text-sm" style={{color:"var(--text-muted)"}}>No transactions yet</p>}
+      </div>
+    </div>
+  </div>);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RECEIVING FORM
+// ═══════════════════════════════════════════════════════════════════════════
+function ReceivingForm({api,barcodes,onSubmit,scannerMode,loading:parentLoading}) {
+  const [barcode,setBarcode]=useState("");
+  const [qty,setQty]=useState("");
+  const [qa,setQa]=useState("");
+  const [inspector,setInspector]=useState("");
+  const [notes,setNotes]=useState("");
+  const [looked,setLooked]=useState(null);
+  const [error,setError]=useState("");
+  const [submitting,setSubmitting]=useState(false);
+  const barcodeRef=useRef(null);
+
+  const lookup=useCallback(bc=>{
+    const b=barcodes.find(x=>(x.Barcode_ID||x.barcodeId)===bc);
+    if(!b){setError("Barcode not found");setLooked(null);return;}
+    if((b.Status||b.status)!=="AWAITING"){setError(`Already ${b.Status||b.status}`);setLooked(null);return;}
+    setLooked(b);setError("");
+  },[barcodes]);
+
+  const scan=()=>{if(barcode.trim())lookup(barcode.trim());};
+  const reset=()=>{setBarcode("");setQty("");setQa("");setInspector("");setNotes("");setLooked(null);setError("");setTimeout(()=>{barcodeRef.current?.focus();},100);};
+  const ok=looked&&Number(qty)>0&&qa&&inspector.trim()&&!submitting;
+
+  const submitRef=useRef(false);
+  const handleSubmit=async()=>{
+    if(!ok||submitRef.current)return;
+    if(!navigator.onLine){setError("You are offline — cannot submit");return;}
+    submitRef.current=true;
+    setSubmitting(true);
+    try{
+      await onSubmit({
+        barcode:looked.Barcode_ID||looked.barcodeId,
+        recordId:looked._id,
+        partNo:looked.Part_No||looked.partNo,
+        poNumber:looked.Order||looked.poNumber,
+        lotNo:looked.Lot_No||looked.lotNo,
+        qty:Number(qty),qaStatus:qa,inspector:sanitize(inspector),notes:sanitize(notes)
+      });
+      reset();
+    }catch(e){
+      setError(e.message);
+    }
+    setSubmitting(false);
+    submitRef.current=false;
+  };
+
+  if(parentLoading) return <div className="flex items-center justify-center py-20"><Spinner size={48}/></div>;
+
+  return (<div className="p-4">
+    <div className="flex items-center gap-2 mb-4"><ClipboardIcon size={20} className="text-amber-500"/><h1 className="text-lg font-bold">Receiving Inspection</h1></div>
+    <ScanInput label="Scan Barcode on Pallet" value={barcode} onChange={setBarcode} onSubmit={scan} placeholder="PLT-00001" autoFocus IconEl={ScanIcon} scannerMode={scannerMode} inputRef={barcodeRef}/>
+    {error&&<div className="bg-red-50 dark:bg-red-950 border border-red-300 dark:border-red-700 rounded-lg p-3 mb-3 text-red-700 dark:text-red-300 text-sm font-bold">{error}</div>}
+    {looked&&<div className="rounded-xl p-4 mb-4 slide-up border" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
+      <div className="grid grid-cols-2 gap-2">
+        <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Part No</span><p className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{looked.Part_No||looked.partNo}</p></div>
+        <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>PO Number</span><p className="font-mono font-bold text-orange-600 dark:text-orange-400">{looked.Order||looked.poNumber}</p></div>
+        <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Lot</span><p className="font-mono" style={{color:"var(--text-secondary)"}}>{looked.Lot_No||looked.lotNo||"—"}</p></div>
+        <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Status</span><p className="font-bold text-amber-600 dark:text-amber-400">{looked.Status||looked.status}</p></div>
+      </div>
+    </div>}
+    {looked&&<>
+      <NumInput label="Quantity Received" value={qty} onChange={setQty}/>
+      <div className="mb-3">
+        <label className="block text-xs font-bold uppercase tracking-wider mb-2" style={{color:"var(--text-muted)"}}>QA Status</label>
+        <div className="grid grid-cols-3 gap-2">
+          {[["PASS","bg-emerald-600 border-emerald-400"],["FAIL","bg-red-600 border-red-400"],["HOLD","bg-amber-600 border-amber-400"]].map(([s,ac])=>(
+            <button key={s} onClick={()=>setQa(s)} className={`py-3 rounded-xl font-bold text-lg transition-all ${qa===s?`${ac} border-2 text-white shadow-lg scale-105`:"border text-slate-500"}`}
+              style={qa!==s?{background:"var(--input-bg)",borderColor:"var(--input-border)"}:{}}>{s}</button>
+          ))}
+        </div>
+      </div>
+      <ScanInput label="Inspector Badge" value={inspector} onChange={setInspector} placeholder="Scan badge" IconEl={ScanIcon} scannerMode={scannerMode}/>
+      <ScanInput label="Notes (optional)" value={notes} onChange={setNotes} placeholder="Comments..."/>
+      <button onClick={handleSubmit}
+        disabled={!ok} className={`w-full py-4 rounded-xl font-bold text-xl tracking-wide transition-all mt-4 flex items-center justify-center gap-2 ${ok?"bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg active:scale-95":"opacity-50 cursor-not-allowed"}`}
+        style={!ok?{background:"var(--input-bg)",color:"var(--text-muted)"}:{}}>
+        {submitting?<Spinner size={24}/>:"SUBMIT RECEIVING"}
+      </button>
+    </>}
+    {!looked&&<div className="text-center py-12" style={{color:"var(--text-muted)"}}><ScanIcon size={48} className="mx-auto mb-3 opacity-40"/><p className="text-sm">Scan the QR code on the pallet to begin</p></div>}
+  </div>);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STOCKROOM FORM
+// ═══════════════════════════════════════════════════════════════════════════
+function StockroomForm({queue,onSubmit,scannerMode,loading:parentLoading}) {
+  const [sel,setSel]=useState(null);
+  const [loc,setLoc]=useState("");
+  const [op,setOp]=useState("");
+  const [notes,setNotes]=useState("");
+  const [submitting,setSubmitting]=useState(false);
+  const [error,setError]=useState("");
+
+  const reset=()=>{setSel(null);setLoc("");setOp("");setNotes("");setError("");};
+  const ok=sel&&loc.trim()&&op.trim()&&!submitting;
+
+  const submitRef=useRef(false);
+  const handleSubmit=async()=>{
+    if(!ok||submitRef.current)return;
+    if(!navigator.onLine){setError("You are offline — cannot submit");return;}
+    submitRef.current=true;
+    setSubmitting(true);
+    try{
+      await onSubmit({
+        barcode:sel.Barcode_ID||sel.barcodeId,
+        recordId:sel._id,
+        partNo:sel.Part_No||sel.partNo,
+        location:sanitize(loc.trim()),
+        operator:sanitize(op.trim()),
+        notes:sanitize(notes)
+      });
+      reset();
+    }catch(e){setError(e.message);}
+    setSubmitting(false);
+    submitRef.current=false;
+  };
+
+  if(parentLoading) return <div className="flex items-center justify-center py-20"><Spinner size={48}/></div>;
+
+  return (<div className="p-4">
+    <div className="flex items-center gap-2 mb-4"><WarehouseIcon size={20} className="text-orange-500"/><h1 className="text-lg font-bold">Stockroom Stocking</h1>
+      {queue.length>0&&<span className="ml-auto bg-orange-600 text-white text-xs font-bold px-2 py-1 rounded-full">{queue.length}</span>}
+    </div>
+    {error&&<div className="bg-red-50 dark:bg-red-950 border border-red-300 dark:border-red-700 rounded-lg p-3 mb-3 text-red-700 dark:text-red-300 text-sm font-bold">{error}</div>}
+    {!sel?(<div>
+      {queue.length===0?(<div className="text-center py-16"><CheckIcon size={48} className="mx-auto mb-3 text-emerald-500 opacity-50"/><p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">Staging clear</p><p className="text-sm mt-1" style={{color:"var(--text-muted)"}}>Nothing to stock</p></div>)
+      :(<div className="space-y-2"><p className="text-xs mb-2" style={{color:"var(--text-muted)"}}>Tap to begin stocking:</p>
+        {queue.map(q=>(<button key={q.Barcode_ID||q.barcodeId} onClick={()=>setSel(q)} className={`w-full text-left rounded-xl p-4 transition-all active:scale-98 ${q.prio.bg}`}>
+          <div className="flex items-center gap-3">
+            <div className="flex-1"><div className="font-mono font-bold" style={{color:"var(--text-primary)"}}>{q.Barcode_ID||q.barcodeId}</div><div className="text-sm" style={{color:"var(--text-muted)"}}>{q.Part_No||q.partNo}</div>
+              <div className="text-xs" style={{color:"var(--text-muted)"}}>Qty: {q.Qty_Received||q.qtyReceived||"—"} • QA: {q.QA_Status||q.qaStatus||"—"}</div></div>
+            <div className="text-right"><div className={`text-sm font-bold ${q.prio.color}`}>{q.prio.label}</div><div className="text-xs" style={{color:"var(--text-muted)"}}>{q.hrsStaging?.toFixed(1)}h</div></div>
+            <ChevronIcon size={20} style={{color:"var(--text-muted)"}}/>
+          </div></button>))}
+      </div>)}
+    </div>):(<div className="slide-up">
+      <button onClick={reset} className="text-orange-500 text-sm mb-3">← Back to queue</button>
+      <div className="rounded-xl p-4 mb-4 border" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
+        <div className="grid grid-cols-2 gap-2">
+          <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Barcode</span><p className="font-mono font-bold" style={{color:"var(--text-primary)"}}>{sel.Barcode_ID||sel.barcodeId}</p></div>
+          <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Part</span><p className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{sel.Part_No||sel.partNo}</p></div>
+          <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Qty</span><p className="font-bold" style={{color:"var(--text-primary)"}}>{sel.Qty_Received||sel.qtyReceived}</p></div>
+          <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>QA</span><p className={`font-bold ${(sel.QA_Status||sel.qaStatus)==="PASS"?"text-emerald-600 dark:text-emerald-400":(sel.QA_Status||sel.qaStatus)==="HOLD"?"text-amber-600 dark:text-amber-400":"text-red-600 dark:text-red-400"}`}>{sel.QA_Status||sel.qaStatus||"—"}</p></div>
+        </div>
+      </div>
+      <ScanInput label="Scan Location Barcode" value={loc} onChange={setLoc} placeholder="RACK-A1-01" autoFocus IconEl={MapPinIcon} scannerMode={scannerMode}/>
+      <ScanInput label="Operator Badge" value={op} onChange={setOp} placeholder="Scan badge" IconEl={ScanIcon} scannerMode={scannerMode}/>
+      <ScanInput label="Notes (optional)" value={notes} onChange={setNotes} placeholder="Comments..."/>
+      <button onClick={handleSubmit}
+        disabled={!ok} className={`w-full py-4 rounded-xl font-bold text-xl tracking-wide transition-all mt-4 flex items-center justify-center gap-2 ${ok?"bg-orange-600 hover:bg-orange-500 text-white shadow-lg active:scale-95":"opacity-50 cursor-not-allowed"}`}
+        style={!ok?{background:"var(--input-bg)",color:"var(--text-muted)"}:{}}>
+        {submitting?<Spinner size={24}/>:"STOCK THIS ITEM"}
+      </button>
+    </div>)}
+  </div>);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ISSUING FORM
+// ═══════════════════════════════════════════════════════════════════════════
+function IssuingForm({barcodes,inventoryByPart,onSubmit,scannerMode,loading:parentLoading}) {
+  const [search,setSearch]=useState("");
+  const [selPart,setSelPart]=useState(null);
+  const [selBc,setSelBc]=useState(null);
+  const [wo,setWo]=useState("");
+  const [qty,setQty]=useState("");
+  const [op,setOp]=useState("");
+  const [notes,setNotes]=useState("");
+  const [submitting,setSubmitting]=useState(false);
+  const [error,setError]=useState("");
+  const searchRef=useRef(null);
+
+  const parts=useMemo(()=>Object.values(inventoryByPart).filter(p=>p.partNo.toLowerCase().includes(search.toLowerCase())&&p.totalQty>0),[inventoryByPart,search]);
+  const fifo=selPart?selPart.barcodes.filter(b=>(b.Status||b.status)==="IN STOCK"&&(b.Current_Qty||b.currentQty)>0).sort((a,b)=>new Date(a.Received_Date||a.receivedDate||0)-new Date(b.Received_Date||b.receivedDate||0)):[];
+  const maxQ=selBc?(selBc.Current_Qty||selBc.currentQty||0):0;
+  const ok=selBc&&wo.trim()&&Number(qty)>0&&Number(qty)<=maxQ&&op.trim()&&!submitting;
+  const reset=()=>{setSelPart(null);setSelBc(null);setWo("");setQty("");setOp("");setNotes("");setError("");setTimeout(()=>{searchRef.current?.focus();},100);};
+
+  const submitRef=useRef(false);
+  const handleSubmit=async()=>{
+    if(!ok||submitRef.current)return;
+    if(!navigator.onLine){setError("You are offline — cannot submit");return;}
+    const issueQty=Number(qty);
+    if(issueQty<=0||issueQty>maxQ){setError(`Invalid qty: must be 1-${maxQ}`);return;}
+    submitRef.current=true;
+    setSubmitting(true);
+    try{
+      await onSubmit({
+        barcode:selBc.Barcode_ID||selBc.barcodeId,
+        recordId:selBc._id,
+        partNo:selBc.Part_No||selBc.partNo,
+        woNumber:sanitize(wo.trim()),
+        qty:issueQty,
+        operator:sanitize(op.trim()),
+        notes:sanitize(notes),
+        currentQty:selBc.Current_Qty||selBc.currentQty||0
+      });
+      reset();
+    }catch(e){setError(e.message);}
+    setSubmitting(false);
+    submitRef.current=false;
+  };
+
+  if(parentLoading) return <div className="flex items-center justify-center py-20"><Spinner size={48}/></div>;
+
+  return (<div className="p-4">
+    <div className="flex items-center gap-2 mb-4"><ArrowsIcon size={20} className="text-red-500"/><h1 className="text-lg font-bold">Production Issuing</h1></div>
+    {error&&<div className="bg-red-50 dark:bg-red-950 border border-red-300 dark:border-red-700 rounded-lg p-3 mb-3 text-red-700 dark:text-red-300 text-sm font-bold">{error}</div>}
+    {!selPart?(<div>
+      <div className="relative mb-3"><SearchIcon size={18} className="absolute left-3 top-1/2 -translate-y-1/2" style={{color:"var(--text-muted)"}}/>
+        <input ref={searchRef} type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search part number..."
+          className="w-full py-3 pl-10 pr-4 rounded-lg border-2 focus:border-orange-500 outline-none font-mono"
+          style={{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--input-border)"}}/></div>
+      <div className="space-y-2">{parts.map(p=>(<button key={p.partNo} onClick={()=>setSelPart(p)}
+        className="w-full text-left rounded-xl p-4 border active:border-orange-500 transition-all" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
+        <div className="flex items-center justify-between">
+          <div><div className="font-mono font-bold" style={{color:"var(--text-primary)"}}>{p.partNo}</div><div className="text-xs" style={{color:"var(--text-muted)"}}>{p.barcodes.length} barcodes • {[...p.locations].join(", ")||"—"}</div></div>
+          <div className="text-right"><div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">{p.totalQty}</div><div className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Avail</div></div>
+        </div></button>))}
+        {parts.length===0&&<p className="text-center py-8 text-sm" style={{color:"var(--text-muted)"}}>{search?"No match":"Search for a part"}</p>}
+      </div>
+    </div>):!selBc?(<div className="slide-up">
+      <button onClick={()=>setSelPart(null)} className="text-orange-500 text-sm mb-3">← Back</button>
+      <div className="rounded-xl p-3 mb-3 border" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
+        <span className="font-mono font-bold" style={{color:"var(--text-primary)"}}>{selPart.partNo}</span><span className="text-emerald-600 dark:text-emerald-400 ml-2">({selPart.totalQty} avail)</span></div>
+      <p className="text-xs mb-2" style={{color:"var(--text-muted)"}}>FIFO pick order (oldest first):</p>
+      <div className="space-y-2">{fifo.map((b,i)=>(<button key={b.Barcode_ID||b.barcodeId} onClick={()=>setSelBc(b)}
+        className={`w-full text-left rounded-xl p-4 transition-all active:scale-98 ${i===0?"bg-emerald-50 dark:bg-emerald-950 border-2 border-emerald-500":"border"}`}
+        style={i!==0?{background:"var(--bg-card)",borderColor:"var(--border)"}:{}}>
+        <div className="flex items-center gap-3">
+          {i===0&&<span className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">FIFO</span>}
+          <div className="flex-1"><div className="font-mono font-bold" style={{color:"var(--text-primary)"}}>{b.Barcode_ID||b.barcodeId}</div><div className="text-xs" style={{color:"var(--text-muted)"}}>{b.Location||b.location||"—"} • {fmtDate(b.Received_Date||b.receivedDate)}</div></div>
+          <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">{b.Current_Qty||b.currentQty}</div>
+        </div></button>))}</div>
+    </div>):(<div className="slide-up">
+      <button onClick={()=>setSelBc(null)} className="text-orange-500 text-sm mb-3">← Back</button>
+      <div className="rounded-xl p-4 mb-4 border" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
+        <div className="grid grid-cols-2 gap-2">
+          <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Barcode</span><p className="font-mono font-bold" style={{color:"var(--text-primary)"}}>{selBc.Barcode_ID||selBc.barcodeId}</p></div>
+          <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Part</span><p className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{selBc.Part_No||selBc.partNo}</p></div>
+          <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Location</span><p className="font-bold text-orange-600 dark:text-orange-400">{selBc.Location||selBc.location||"—"}</p></div>
+          <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Available</span><p className="font-bold" style={{color:"var(--text-primary)"}}>{selBc.Current_Qty||selBc.currentQty}</p></div>
+        </div></div>
+      <ScanInput label="Scan Work Order" value={wo} onChange={setWo} placeholder="WO-2026-00001" autoFocus IconEl={ScanIcon} scannerMode={scannerMode}/>
+      <NumInput label="Issue Quantity" value={qty} onChange={setQty} max={maxQ}/>
+      <ScanInput label="Operator Badge" value={op} onChange={setOp} placeholder="Scan badge" IconEl={ScanIcon} scannerMode={scannerMode}/>
+      <ScanInput label="Notes (optional)" value={notes} onChange={setNotes} placeholder="Comments..."/>
+      <button onClick={handleSubmit}
+        disabled={!ok} className={`w-full py-4 rounded-xl font-bold text-xl tracking-wide transition-all mt-4 flex items-center justify-center gap-2 ${ok?"bg-red-600 hover:bg-red-500 text-white shadow-lg active:scale-95":"opacity-50 cursor-not-allowed"}`}
+        style={!ok?{background:"var(--input-bg)",color:"var(--text-muted)"}:{}}>
+        {submitting?<Spinner size={24}/>:"ISSUE TO PRODUCTION"}
+      </button>
+    </div>)}
+  </div>);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INVENTORY VIEW
+// ═══════════════════════════════════════════════════════════════════════════
+function InventoryView({inventoryByPart,loading}) {
+  const [search,setSearch]=useState("");
+  const [exp,setExp]=useState(null);
+  const all=useMemo(()=>Object.values(inventoryByPart).filter(p=>p.partNo.toLowerCase().includes(search.toLowerCase())),[inventoryByPart,search]);
+  
+  if(loading) return <div className="flex items-center justify-center py-20"><Spinner size={48}/></div>;
+  
+  return (<div className="p-4">
+    <div className="flex items-center gap-2 mb-2"><PackageIcon size={20} className="text-orange-500"/><h1 className="text-lg font-bold">Inventory</h1>
+      <span className="ml-auto text-xs" style={{color:"var(--text-muted)"}}>{all.length} parts • {all.reduce((s,p)=>s+p.totalQty,0)} qty</span></div>
+    <div className="relative mb-3"><SearchIcon size={18} className="absolute left-3 top-1/2 -translate-y-1/2" style={{color:"var(--text-muted)"}}/>
+      <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..."
+        className="w-full py-2.5 pl-10 pr-4 rounded-lg border focus:border-orange-500 outline-none font-mono text-sm"
+        style={{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--input-border)"}}/></div>
+    <div className="space-y-1.5">{all.map(p=>(<div key={p.partNo}>
+      <button onClick={()=>setExp(exp===p.partNo?null:p.partNo)} className="w-full text-left rounded-lg px-3 py-2.5 border active:border-orange-500" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
+        <div className="flex items-center justify-between"><div><span className="font-mono font-bold text-sm" style={{color:"var(--text-primary)"}}>{p.partNo}</span>
+          <span className="text-xs ml-2" style={{color:"var(--text-muted)"}}>{[...p.locations].join(", ")}</span></div>
+          <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{p.totalQty}</span></div></button>
+      {exp===p.partNo&&<div className="rounded-b-lg px-3 py-2 border-x border-b space-y-1 slide-up" style={{background:"var(--bg-secondary)",borderColor:"var(--border)"}}>
+        {p.barcodes.map(b=>(<div key={b.Barcode_ID||b.barcodeId} className="flex items-center justify-between text-xs">
+          <span className="font-mono" style={{color:"var(--text-secondary)"}}>{b.Barcode_ID||b.barcodeId}</span>
+          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${(b.Status||b.status)==="IN STOCK"?"bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-400":(b.Status||b.status)==="RECEIVED"?"bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-400":"bg-slate-200 dark:bg-slate-700 text-slate-500"}`}>{b.Status||b.status}</span>
+          <span style={{color:"var(--text-muted)"}}>{b.Location||b.location||"—"}</span>
+          <span className="font-mono font-bold" style={{color:"var(--text-primary)"}}>{b.Current_Qty||b.currentQty}</span>
+        </div>))}</div>}
+    </div>))}</div>
+  </div>);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SETTINGS VIEW
+// ═══════════════════════════════════════════════════════════════════════════
+function SettingsView({config,setConfig,onRefresh,refreshing,setToast,admin,dark,toggleTheme,scannerMode,setScannerMode,onLoadSample,onClearData}) {
+  const [baseId,setBaseId]=useState(config.baseId||"");
+  const [apiKey,setApiKey]=useState(config.apiKey||"");
+  const [testing,setTesting]=useState(false);
+  const [newPin,setNewPin]=useState("");
+  const isLocal = config.mode==="local";
+
+  const sectionStyle={background:"var(--bg-card)",borderColor:"var(--border)"};
+
+  const testConn=async()=>{
+    if(!baseId.trim()||!apiKey.trim()){setToast({msg:"Enter Base ID and API Key",type:"error"});return;}
+    setTesting(true);
+    try{
+      const api=new AirtableAPI(baseId.trim(),apiKey.trim());
+      await api.get("BARCODES",{maxRecords:1});
+      setToast({msg:"✓ Connected to Airtable",type:"success"});
+      setConfig(p=>({...p,baseId:baseId.trim(),apiKey:apiKey.trim(),connected:true,mode:"airtable"}));
+    }catch(e){
+      setToast({msg:"Connection failed: "+e.message,type:"error"});
+    }
+    setTesting(false);
+  };
+
+  return (<div className="p-4 space-y-4">
+    <div className="flex items-center gap-2 mb-2"><GearIcon size={20} className="text-orange-500"/><h1 className="text-lg font-bold">Settings</h1></div>
+
+    <section className="rounded-xl p-4 border" style={sectionStyle}>
+      <h2 className="text-sm font-bold uppercase tracking-wider mb-3 flex items-center gap-2" style={{color:"var(--text-secondary)"}}><DatabaseIcon size={14}/> Data Mode</h2>
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <button onClick={()=>{setConfig(p=>({...p,mode:"local",connected:true}));setToast({msg:"Switched to Local mode",type:"info"});}}
+          className={`py-3 rounded-xl font-bold text-sm transition-all ${isLocal?"bg-orange-600 border-2 border-orange-400 text-white shadow-lg":"border"}`}
+          style={!isLocal?{background:"var(--input-bg)",color:"var(--text-secondary)",borderColor:"var(--input-border)"}:{}}>
+          ⚡ Local Testing
+        </button>
+        <button onClick={()=>{setConfig(p=>({...p,mode:"airtable",connected:!!(p.baseId&&p.apiKey)}));setToast({msg:"Switched to Airtable mode",type:"info"});}}
+          className={`py-3 rounded-xl font-bold text-sm transition-all ${!isLocal?"bg-orange-600 border-2 border-orange-400 text-white shadow-lg":"border"}`}
+          style={isLocal?{background:"var(--input-bg)",color:"var(--text-secondary)",borderColor:"var(--input-border)"}:{}}>
+          ☁️ Airtable
+        </button>
+      </div>
+      {isLocal&&<div className="rounded-lg p-3 bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 text-xs">
+        <span className="font-bold text-amber-700 dark:text-amber-300">Local mode</span>
+        <span className="text-amber-600 dark:text-amber-400"> — data stored in browser localStorage. No Airtable connection needed.</span>
+      </div>}
+    </section>
+
+    {isLocal&&<section className="rounded-xl p-4 border" style={sectionStyle}>
+      <h2 className="text-sm font-bold uppercase tracking-wider mb-3" style={{color:"var(--text-secondary)"}}>Test Data</h2>
+      <div className="flex gap-2">
+        <button onClick={()=>{const c=onLoadSample();setToast({msg:`Loaded ${c.orders} orders, ${c.barcodes} barcodes, ${c.txns} txns`,type:"success"});}}
+          className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold">Load Sample Data</button>
+        <button onClick={()=>{onClearData();setToast({msg:"All local data cleared",type:"warning"});}}
+          className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-1">
+          <TrashIcon size={14}/> Clear Data</button>
+      </div>
+      <button onClick={onRefresh} disabled={refreshing} className="w-full py-2.5 mt-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2">
+        {refreshing?<Spinner size={16}/>:<RefreshIcon size={16}/>} Refresh from Store</button>
+    </section>}
+
+    {!isLocal&&<section className="rounded-xl p-4 border" style={sectionStyle}>
+      <h2 className="text-sm font-bold uppercase tracking-wider mb-3 flex items-center gap-2" style={{color:"var(--text-secondary)"}}><DatabaseIcon size={14}/> Airtable Connection</h2>
+      <ScanInput label="Base ID" value={baseId} onChange={setBaseId} placeholder="appXXXXXXXXXXXXXX"/>
+      <ScanInput label="API Key (Personal Access Token)" value={apiKey} onChange={setApiKey} placeholder="pat.XXXXXX..."/>
+      <div className="flex gap-2">
+        <button onClick={()=>{setConfig(p=>({...p,baseId:baseId.trim(),apiKey:apiKey.trim()}));setToast({msg:"Saved",type:"success"});}} className="flex-1 py-2.5 rounded-lg text-sm font-bold border" style={{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--border)"}}>Save</button>
+        <button onClick={testConn} disabled={testing} className="flex-1 py-2.5 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2">
+          {testing?<Spinner size={16}/>:<WifiIcon size={16}/>} Test</button>
+        <button onClick={onRefresh} disabled={refreshing} className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2">
+          {refreshing?<Spinner size={16}/>:<RefreshIcon size={16}/>} Refresh</button>
+      </div>
+      {config.connected&&config.mode==="airtable"&&<div className="mt-3 text-xs text-emerald-500 flex items-center gap-1"><CheckIcon size={14}/> Connected</div>}
+    </section>}
+
+    <section className="rounded-xl p-4 border" style={sectionStyle}>
+      <h2 className="text-sm font-bold uppercase tracking-wider mb-3" style={{color:"var(--text-secondary)"}}>Preferences</h2>
+      <div className="flex gap-2">
+        <button onClick={toggleTheme} className="flex-1 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 border"
+          style={{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--border)"}}>
+          {dark?<MoonIcon size={16}/>:<SunIcon size={16}/>} {dark?"Dark Mode":"Light Mode"}
+        </button>
+        <button onClick={()=>{const v=!scannerMode;setScannerMode(v);lsSet("inv-scanner",v);setToast({msg:v?"Scanner mode ON":"Scanner mode OFF",type:"info"});}}
+          className={`flex-1 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 border ${scannerMode?"bg-orange-600 text-white border-orange-500":"border"}`}
+          style={!scannerMode?{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--border)"}:{}}>
+          <ScanIcon size={16}/> {scannerMode?"Scanner: ON":"Scanner: OFF"}
+        </button>
+      </div>
+    </section>
+
+    {admin&&<section className="rounded-xl p-4 border" style={sectionStyle}>
+      <h2 className="text-sm font-bold uppercase tracking-wider mb-3 flex items-center gap-2" style={{color:"var(--text-secondary)"}}><LockIcon size={14}/> Admin PIN</h2>
+      <p className="text-xs mb-2" style={{color:"var(--text-muted)"}}>Current PIN: {(config.adminPin||"1234").replace(/./g,"•")}</p>
+      <div className="flex gap-2">
+        <input type="text" inputMode="numeric" maxLength={8} value={newPin} onChange={e=>setNewPin(e.target.value)} placeholder="New PIN"
+          className="flex-1 py-2.5 px-4 rounded-lg border focus:border-orange-500 outline-none font-mono text-center text-lg tracking-widest"
+          style={{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--input-border)"}}/>
+        <button onClick={()=>{if(newPin.length>=4){setConfig(p=>({...p,adminPin:newPin}));setNewPin("");setToast({msg:"PIN changed",type:"success"});}else setToast({msg:"PIN must be 4+ digits",type:"error"});}}
+          className="py-2.5 px-6 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-sm font-bold">Save</button>
+      </div>
+    </section>}
+
+    {!admin&&<section className="rounded-xl p-4 border" style={sectionStyle}>
+      <div className="flex items-center gap-3" style={{color:"var(--text-muted)"}}>
+        <LockIcon size={20}/>
+        <div><p className="text-sm font-bold" style={{color:"var(--text-secondary)"}}>Admin features locked</p>
+          <p className="text-xs">Tap the lock icon in header to unlock</p></div>
+      </div>
+    </section>}
+
+    <section className="rounded-xl p-4 border border-dashed" style={{borderColor:"var(--border)"}}>
+      <p className="text-xs text-center" style={{color:"var(--text-muted)"}}>
+        Nox Inventory v1.1 • {isLocal?"Local Testing Mode":"Airtable Backend"}<br/>
+        {isLocal?"Data in localStorage — switch to Airtable for production":"Data syncs in real-time — no offline mode"}
+      </p>
+    </section>
+  </div>);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ERROR BOUNDARY
+// ═══════════════════════════════════════════════════════════════════════════
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) return (
+      <div className="min-h-screen flex items-center justify-center p-8" style={{background:"var(--bg-primary)",color:"var(--text-primary)"}}>
+        <div className="text-center">
+          <AlertIcon size={64} className="mx-auto mb-4 text-red-500 opacity-60"/>
+          <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
+          <p className="text-sm mb-4" style={{color:"var(--text-muted)"}}>{this.state.error.message}</p>
+          <button onClick={()=>{this.setState({error:null});window.location.reload();}} className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-bold">
+            Reload App
+          </button>
+        </div>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════════════════════════════════════
+function App() {
+  const [view,setView]=useState("dashboard");
+  const [loading,setLoading]=useState(true);
+  const [refreshing,setRefreshing]=useState(false);
+  const [toast,setToast]=useState(null);
+  
+  // Data
+  const [barcodes,setBarcodes]=useState([]);
+  const [txns,setTxns]=useState([]);
+  
+  // Config (persisted locally) — mode: "local" or "airtable"
+  const [config,setConfig]=useState({baseId:"",apiKey:"",connected:false,adminPin:"1234",mode:"local"});
+  const [admin,setAdmin]=useState(false);
+  const [showPin,setShowPin]=useState(false);
+  const [pin,setPin]=useState("");
+  const [scannerMode,setScannerMode]=useState(false);
+
+  const {dark, toggle: toggleTheme} = useTheme();
+  const online = useOnline();
+
+  // Persistent LocalAPI instance
+  const localApi = useMemo(()=>new LocalAPI(),[]);
+
+  // Initialize API based on mode
+  const api = useMemo(()=>{
+    if(config.mode==="local") return localApi;
+    if(config.baseId && config.apiKey) return new AirtableAPI(config.baseId, config.apiKey);
+    return null;
+  },[config.mode, config.baseId, config.apiKey, localApi]);
+
+  // Load config from localStorage
+  useEffect(()=>{
+    const saved = lsGet("inv-config")||{baseId:"",apiKey:"",connected:false,adminPin:"1234",mode:"local"};
+    if(!saved.mode) saved.mode = "local"; // default to local for testing
+    setConfig(saved);
+    setAdmin(!!lsGet("inv-admin"));
+    setScannerMode(!!lsGet("inv-scanner"));
+  },[]);
+
+  // Persist config
+  useEffect(()=>{lsSet("inv-config",config);},[config]);
+  useEffect(()=>{lsSet("inv-admin",admin?true:null);},[admin]);
+
+  // Fetch data — only active barcodes (excludes DEPLETED history)
+  const fetchData=useCallback(async()=>{
+    if(!api){setLoading(false);return;}
+    try{
+      // Sequential fetching to stay under Airtable's 5 req/sec rate limit
+      const bc = await api.get("BARCODES",{filter:'NOT({Status}="DEPLETED")'});
+      const tx = await api.get("TRANSACTIONS",{sort:{field:"Timestamp"},sortDir:"desc",maxRecords:100});
+      setBarcodes(bc);
+      setTxns(tx);
+    }catch(e){
+      console.error("Fetch failed:",e);
+      setToast({msg:"Failed to load data: "+e.message,type:"error"});
+    }
+    setLoading(false);
+  },[api]);
+
+  // Initial load + re-fetch when mode/api changes
+  useEffect(()=>{
+    setLoading(true);
+    if(api) fetchData();
+    else setLoading(false);
+  },[api, fetchData]);
+
+  // Silent re-fetch on tab switch (keeps data fresh without manual refresh)
+  const firstRender=useRef(true);
+  useEffect(()=>{
+    if(firstRender.current){firstRender.current=false;return;}
+    if(api) fetchData();
+  },[view]);
+
+  // Refresh handler
+  const onRefresh=async()=>{
+    if(!api){setToast({msg:"No data source configured",type:"error"});return;}
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+    setToast({msg:"Data refreshed",type:"success"});
+  };
+
+  // Sample data handlers for local mode
+  const onLoadSample=()=>{
+    const counts = localApi.loadSampleData();
+    fetchData();
+    return counts;
+  };
+  const onClearData=()=>{
+    localApi.clearData();
+    setBarcodes([]);
+    setTxns([]);
+  };
+
+  // ═══ SUBMIT HANDLERS (with atomicity rollback) ═══
+  const submitReceiving=useCallback(async(data)=>{
+    if(!api) throw new Error("Not connected");
+    
+    // Pre-flight check: verify barcode is still AWAITING on the server
+    const fresh = await api.findOne("BARCODES", `{Barcode_ID}="${data.barcode}"`);
+    if(!fresh) throw new Error(`Barcode ${data.barcode} not found in database`);
+    const freshStatus = fresh.Status||fresh.status;
+    if(freshStatus !== "AWAITING") {
+      await fetchData();
+      throw new Error(`${data.barcode} is already ${freshStatus} — someone else received it.`);
+    }
+    
+    const originalStatus = "AWAITING";
+    
+    // Step 1: Update barcode
+    await api.update("BARCODES",data.recordId,{
+      Status:"RECEIVED",
+      QA_Status:data.qaStatus,
+      Qty_Received:Number(data.qty),
+      Current_Qty:Number(data.qty),
+      Received_Date:new Date().toISOString()
+    });
+    
+    // Step 2: Create transaction — rollback barcode on failure
+    try {
+      await api.create("TRANSACTIONS",{
+        Source:"RECEIVING",
+        Timestamp:new Date().toISOString(),
+        Type:"IN",
+        Barcode:[data.recordId],
+        Barcode_Display:data.barcode,
+        Part_No:data.partNo,
+        Qty:Number(data.qty),
+        Location:"DOCK",
+        Reference:data.poNumber||"",
+        Operator:data.inspector,
+        QA_Status:data.qaStatus,
+        Notes:data.notes||""
+      });
+    } catch(e) {
+      // Rollback barcode to original state
+      try { await api.update("BARCODES",data.recordId,{Status:originalStatus,QA_Status:"",Qty_Received:0,Current_Qty:0,Received_Date:null}); } catch{}
+      throw new Error("Transaction failed — barcode rolled back: "+e.message);
+    }
+    
+    // Optimistic local state injection (immediate UI update even if fetchData fails)
+    const now = new Date().toISOString();
+    setBarcodes(prev=>prev.map(b=>b._id===data.recordId?{...b,Status:"RECEIVED",QA_Status:data.qaStatus,Qty_Received:Number(data.qty),Current_Qty:Number(data.qty),Received_Date:now}:b));
+    setTxns(prev=>[{_id:"opt-"+Date.now(),Source:"RECEIVING",Timestamp:now,Type:"IN",Barcode_Display:data.barcode,Part_No:data.partNo,Qty:Number(data.qty),Location:"DOCK",Reference:data.poNumber||"",Operator:data.inspector},...prev]);
+    
+    // Background refresh (non-blocking — if this fails, optimistic state is still correct)
+    try { await fetchData(); } catch(e) { console.warn("Background refresh failed:",e); }
+    setToast({msg:`✓ Received ${data.qty} × ${data.partNo}`,type:"success"});
+  },[api,fetchData,barcodes]);
+
+  const submitStockroom=useCallback(async(data)=>{
+    if(!api) throw new Error("Not connected");
+    
+    // Pre-flight check: verify barcode is still RECEIVED on the server
+    const fresh = await api.findOne("BARCODES", `{Barcode_ID}="${data.barcode}"`);
+    if(!fresh) throw new Error(`Barcode ${data.barcode} not found in database`);
+    const freshStatus = fresh.Status||fresh.status;
+    if(freshStatus !== "RECEIVED") {
+      await fetchData();
+      throw new Error(`${data.barcode} is ${freshStatus} — expected RECEIVED. Someone else may have stocked it.`);
+    }
+    
+    const originalStatus = "RECEIVED";
+    const originalLocation = fresh.Location||fresh.location||"";
+    
+    // Step 1: Update barcode
+    await api.update("BARCODES",data.recordId,{
+      Status:"IN STOCK",
+      Location:data.location,
+      Stocked_Date:new Date().toISOString()
+    });
+    
+    // Step 2: Create transaction — rollback on failure
+    try {
+      await api.create("TRANSACTIONS",{
+        Source:"STOCKROOM",
+        Timestamp:new Date().toISOString(),
+        Type:"LOCATION",
+        Barcode:[data.recordId],
+        Barcode_Display:data.barcode,
+        Part_No:data.partNo,
+        Qty:0,
+        Location:data.location,
+        Reference:"",
+        Operator:data.operator,
+        Notes:data.notes||""
+      });
+    } catch(e) {
+      try { await api.update("BARCODES",data.recordId,{Status:originalStatus,Location:originalLocation,Stocked_Date:null}); } catch{}
+      throw new Error("Transaction failed — barcode rolled back: "+e.message);
+    }
+    
+    // Optimistic local state injection
+    const now = new Date().toISOString();
+    setBarcodes(prev=>prev.map(b=>b._id===data.recordId?{...b,Status:"IN STOCK",Location:data.location,Stocked_Date:now}:b));
+    setTxns(prev=>[{_id:"opt-"+Date.now(),Source:"STOCKROOM",Timestamp:now,Type:"LOCATION",Barcode_Display:data.barcode,Part_No:data.partNo,Qty:0,Location:data.location,Operator:data.operator},...prev]);
+    
+    try { await fetchData(); } catch(e) { console.warn("Background refresh failed:",e); }
+    setToast({msg:`✓ ${data.barcode} → ${data.location}`,type:"success"});
+  },[api,fetchData,barcodes]);
+
+  const submitIssuing=useCallback(async(data)=>{
+    if(!api) throw new Error("Not connected");
+    
+    // CRITICAL-03 FIX: Re-read current qty to prevent race condition
+    const fresh = await api.findOne("BARCODES", `{Barcode_ID}="${data.barcode}"`);
+    const freshQty = fresh ? (fresh.Current_Qty??fresh.currentQty??0) : 0;
+    if(data.qty > freshQty) {
+      await fetchData(); // refresh UI with real numbers
+      throw new Error(`Only ${freshQty} available (was ${data.currentQty} when you loaded). Refresh and retry.`);
+    }
+    
+    const newQty = freshQty - data.qty;
+    const originalQty = freshQty;
+    const originalStatus = fresh?.Status||fresh?.status||"IN STOCK";
+    
+    // Step 1: Update barcode
+    await api.update("BARCODES",data.recordId,{
+      Current_Qty:newQty,
+      Status:newQty<=0?"DEPLETED":"IN STOCK"
+    });
+    
+    // Step 2: Create transaction — rollback on failure
+    try {
+      await api.create("TRANSACTIONS",{
+        Source:"PRODUCTION",
+        Timestamp:new Date().toISOString(),
+        Type:"OUT",
+        Barcode:[data.recordId],
+        Barcode_Display:data.barcode,
+        Part_No:data.partNo,
+        Qty:-data.qty,
+        Location:"",
+        Reference:data.woNumber,
+        Operator:data.operator,
+        Notes:data.notes||""
+      });
+    } catch(e) {
+      try { await api.update("BARCODES",data.recordId,{Current_Qty:originalQty,Status:originalStatus}); } catch{}
+      throw new Error("Transaction failed — barcode rolled back: "+e.message);
+    }
+    
+    // Optimistic local state injection
+    const now = new Date().toISOString();
+    setBarcodes(prev=>prev.map(b=>b._id===data.recordId?{...b,Current_Qty:newQty,Status:newQty<=0?"DEPLETED":"IN STOCK"}:b));
+    setTxns(prev=>[{_id:"opt-"+Date.now(),Source:"PRODUCTION",Timestamp:now,Type:"OUT",Barcode_Display:data.barcode,Part_No:data.partNo,Qty:-data.qty,Reference:data.woNumber,Operator:data.operator},...prev]);
+    
+    try { await fetchData(); } catch(e) { console.warn("Background refresh failed:",e); }
+    setToast({msg:`✓ Issued ${data.qty} to ${data.woNumber}`,type:"success"});
+  },[api,fetchData,barcodes]);
+
+  // ═══ DERIVED STATE ═══
+  const queue=useMemo(()=>
+    barcodes.filter(b=>(b.Status||b.status)==="RECEIVED")
+      .map(b=>({...b,hrsStaging:timeSince(b.Received_Date||b.receivedDate),prio:prio(timeSince(b.Received_Date||b.receivedDate))}))
+      .sort((a,b)=>(b.hrsStaging||0)-(a.hrsStaging||0))
+  ,[barcodes]);
+  
+  const awaiting=barcodes.filter(b=>(b.Status||b.status)==="AWAITING").length;
+  const inStock=barcodes.filter(b=>(b.Status||b.status)==="IN STOCK").length;
+  const issuedToday=useMemo(()=>{
+    const todayStart=new Date();todayStart.setHours(0,0,0,0);
+    return txns.filter(t=>(t.Type||t.type)==="OUT"&&new Date(t.Timestamp||t.timestamp)>=todayStart).length;
+  },[txns]);
+  const urgentCount=queue.filter(q=>q.prio.label==="URGENT").length;
+
+  const inventoryByPart=useMemo(()=>{
+    const map={};
+    barcodes.filter(b=>(b.Status||b.status)==="IN STOCK").forEach(b=>{
+      const pn=b.Part_No||b.partNo;
+      if(!map[pn])map[pn]={partNo:pn,totalQty:0,barcodes:[],locations:new Set()};
+      map[pn].totalQty+=(b.Current_Qty||b.currentQty||0);
+      map[pn].barcodes.push(b);
+      if(b.Location||b.location)map[pn].locations.add(b.Location||b.location);
+    });
+    return map;
+  },[barcodes]);
+
+  // ═══ PIN LOGIC ═══
+  const verifyPin=()=>{
+    if(pin===(config.adminPin||"1234")){setAdmin(true);setShowPin(false);setPin("");setToast({msg:"Admin unlocked",type:"success"});}
+    else{setPin("");setToast({msg:"Wrong PIN",type:"error"});}
+  };
+  const lockOut=()=>{setAdmin(false);lsSet("inv-admin",null);if(view==="inventory")setView("dashboard");setToast({msg:"Locked",type:"info"});};
+
+  // ═══ TABS ═══
+  const tabs=[
+    {id:"dashboard",label:"Dash",Ic:ChartIcon,badge:urgentCount>0?urgentCount:null},
+    {id:"receiving",label:"Receive",Ic:ClipboardIcon},
+    {id:"stockroom",label:"Stock",Ic:WarehouseIcon,badge:queue.length>0?queue.length:null},
+    {id:"issuing",label:"Issue",Ic:ArrowsIcon},
+    ...(admin?[{id:"inventory",label:"Inventory",Ic:PackageIcon}]:[]),
+    {id:"settings",label:"Setup",Ic:GearIcon},
+  ];
+
+  const isLocal = config.mode==="local";
+
+  return (<div className="min-h-screen flex flex-col font-sans" style={{background:"var(--bg-primary)",color:"var(--text-primary)"}}>
+    {toast&&<Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
+
+    {showPin&&<div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={()=>{setShowPin(false);setPin("");}}>
+      <div className="rounded-2xl p-6 w-full max-w-xs border" style={{background:"var(--bg-card)",borderColor:"var(--border)"}} onClick={e=>e.stopPropagation()}>
+        <div className="text-center mb-4"><LockIcon size={32} className="mx-auto text-orange-500 mb-2"/><h2 className="font-bold text-lg">Admin PIN</h2>
+          <p className="text-xs mt-1" style={{color:"var(--text-muted)"}}>Default: 1234</p></div>
+        <input type="password" inputMode="numeric" maxLength={8} value={pin} onChange={e=>setPin(e.target.value)}
+          onKeyDown={e=>{if(e.key==="Enter")verifyPin();}}
+          autoFocus className="w-full py-4 px-4 rounded-xl text-3xl font-mono text-center tracking-[0.5em] border-2 focus:border-orange-500 outline-none"
+          style={{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--input-border)"}}/>
+        <button onClick={verifyPin} className="w-full py-3 mt-4 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-bold text-lg">UNLOCK</button>
+        <button onClick={()=>{setShowPin(false);setPin("");}} className="w-full py-2 mt-2 text-sm" style={{color:"var(--text-muted)"}}>Cancel</button>
+      </div>
+    </div>}
+
+    <header className="border-b px-4 py-3 flex items-center justify-between shrink-0" style={{background:"var(--header-bg)",borderColor:"var(--border)"}}>
+      <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center text-white"><PackageIcon size={18}/></div>
+        <span className="font-bold text-sm tracking-wide">NOX INVENTORY</span>
+        {isLocal&&<span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700">LOCAL</span>}
+      </div>
+      <div className="flex items-center gap-3">
+        {!online&&!isLocal&&<span className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-950 px-2 py-1 rounded border border-red-300 dark:border-red-700">OFFLINE</span>}
+        {refreshing&&<Spinner size={16}/>}
+        {isLocal?<DatabaseIcon size={16} className="text-amber-500"/>:online&&config.connected?<WifiIcon size={16} className="text-emerald-500"/>:<WifiOffIcon size={16} style={{color:"var(--text-muted)"}}/>}
+        <button onClick={()=>{if(admin)lockOut();else setShowPin(true);}} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all border ${admin?"bg-orange-50 dark:bg-orange-900 text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-700":""}`}
+          style={!admin?{background:"var(--input-bg)",color:"var(--text-muted)",borderColor:"var(--border)"}:{}}>
+          {admin?<><UnlockIcon size={14}/> Admin</>:<><LockIcon size={14}/> Lock</>}
+        </button>
+      </div>
+    </header>
+    
+    <main className="flex-1 overflow-y-auto pb-20">
+      {view==="dashboard"&&<DashboardView txns={txns} queue={queue} awaiting={awaiting} inStock={inStock} issuedToday={issuedToday} urgentCount={urgentCount} loading={loading}/>}
+      {view==="receiving"&&<ReceivingForm api={api} barcodes={barcodes} onSubmit={submitReceiving} scannerMode={scannerMode} loading={loading}/>}
+      {view==="stockroom"&&<StockroomForm queue={queue} onSubmit={submitStockroom} scannerMode={scannerMode} loading={loading}/>}
+      {view==="issuing"&&<IssuingForm barcodes={barcodes} inventoryByPart={inventoryByPart} onSubmit={submitIssuing} scannerMode={scannerMode} loading={loading}/>}
+      {view==="inventory"&&<InventoryView inventoryByPart={inventoryByPart} loading={loading}/>}
+      {view==="settings"&&<SettingsView config={config} setConfig={setConfig} onRefresh={onRefresh} refreshing={refreshing} setToast={setToast} admin={admin} dark={dark} toggleTheme={toggleTheme} scannerMode={scannerMode} setScannerMode={setScannerMode} onLoadSample={onLoadSample} onClearData={onClearData}/>}
+    </main>
+    
+    <nav className="fixed bottom-0 left-0 right-0 border-t flex justify-around py-1 z-40" style={{background:"var(--nav-bg)",borderColor:"var(--border)"}}>
+      {tabs.map(t=>(<button key={t.id} onClick={()=>setView(t.id)}
+        className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-all relative ${view===t.id?"text-orange-500":""}`}
+        style={view!==t.id?{color:"var(--text-muted)"}:{}}>
+        <t.Ic size={20}/><span className="text-[10px] mt-0.5 font-medium">{t.label}</span>
+        {t.badge&&<span className="absolute -top-0.5 right-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1">{t.badge}</span>}
+      </button>))}
+    </nav>
+  </div>);
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<ErrorBoundary><App/></ErrorBoundary>);
+</script>
+</body>
+</html>
