@@ -8,14 +8,15 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Inventory System</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&family=Archivo:wght@700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
 tailwind.config = {
-  theme: { extend: { fontFamily: { sans: ['DM Sans', 'system-ui'], mono: ['JetBrains Mono', 'monospace'] } } }
+  darkMode: 'class',
+  theme: { extend: { fontFamily: { sans: ['Outfit', 'system-ui'], mono: ['IBM Plex Mono', 'monospace'] } } }
 };
 </script>
 <style>
@@ -30,16 +31,16 @@ input[type=number] { -moz-appearance: textfield; }
 
 /* Theme variables */
 :root {
-  --bg-primary: #ffffff; --bg-secondary: #f1f5f9; --bg-card: #f8fafc;
-  --border: #e2e8f0; --text-primary: #0f172a; --text-secondary: #475569;
-  --text-muted: #94a3b8; --input-bg: #f1f5f9; --input-border: #cbd5e1;
-  --nav-bg: #ffffff; --header-bg: #ffffff;
+  --bg-primary: #0a0a0a; --bg-secondary: #111111; --bg-card: #161616;
+  --border: #2a2a2a; --text-primary: #f0f0f0; --text-secondary: #999999;
+  --text-muted: #555555; --input-bg: #1c1c1c; --input-border: #333333;
+  --nav-bg: #111111; --header-bg: #0a0a0a;
 }
-.dark {
-  --bg-primary: #020617; --bg-secondary: #0f172a; --bg-card: #0f172a;
-  --border: #1e293b; --text-primary: #f1f5f9; --text-secondary: #94a3b8;
-  --text-muted: #475569; --input-bg: #1e293b; --input-border: #334155;
-  --nav-bg: #0f172a; --header-bg: #0f172a;
+.light {
+  --bg-primary: #f5f5f0; --bg-secondary: #eaeae5; --bg-card: #ffffff;
+  --border: #d4d4cc; --text-primary: #1a1a1a; --text-secondary: #555555;
+  --text-muted: #888888; --input-bg: #eaeae5; --input-border: #c4c4bc;
+  --nav-bg: #f5f5f0; --header-bg: #f5f5f0;
 }
 body { background: var(--bg-primary); color: var(--text-primary); transition: background 0.2s, color 0.2s; }
 </style>
@@ -152,9 +153,9 @@ function loadDraft(formName) {
 
 // ═══ THEME HOOK ═══
 function useTheme() {
-  const [dark, setDark] = useState(() => lsGet("inv-theme") === "dark");
+  const [dark, setDark] = useState(() => lsGet("inv-theme") !== "light");
   useEffect(() => {
-    document.body.classList.toggle("dark", dark);
+    document.body.classList.toggle("dark", dark); document.body.classList.toggle("light", !dark);
     lsSet("inv-theme", dark ? "dark" : "light");
   }, [dark]);
   return { dark, toggle: () => setDark(d => !d) };
@@ -187,7 +188,7 @@ function ScanInput({label,value,onChange,onSubmit,placeholder,IconEl,autoFocus,d
         className={`w-full py-3 px-4 pr-12 rounded-lg text-lg font-mono tracking-wide outline-none transition-all ${
           readOnly?"bg-emerald-50 dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-slate-600":
           disabled?"opacity-50 border":
-          "border-2 focus:border-sky-500 focus:ring-1 focus:ring-sky-500"}`}
+          "border-2 focus:border-orange-500 focus:ring-1 focus:ring-orange-500"}`}
         style={!readOnly&&!disabled?{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--input-border)"}:{}} />
       {IconEl&&<div className="absolute right-3 top-1/2 -translate-y-1/2" style={{color:"var(--text-muted)"}}><IconEl size={20}/></div>}
     </div>
@@ -200,7 +201,7 @@ function NumInput({label,value,onChange,max,min=0}) {
     </label>
     <input type="number" inputMode="numeric" value={value} onChange={e=>onChange(e.target.value)}
       min={min} max={max}
-      className="w-full py-3 px-4 rounded-lg text-2xl font-bold text-center border-2 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none"
+      className="w-full py-3 px-4 rounded-lg text-2xl font-bold text-center border-2 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
       style={{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--input-border)"}} />
   </div>);
 }
@@ -208,7 +209,7 @@ function NumInput({label,value,onChange,max,min=0}) {
 // ═══ TOAST ═══
 function Toast({msg,type,onClose}) {
   useEffect(()=>{const t=setTimeout(onClose,3500);return()=>clearTimeout(t);},[onClose]);
-  const c={success:"bg-emerald-600",error:"bg-red-600",info:"bg-sky-600",warning:"bg-amber-600"};
+  const c={success:"bg-emerald-600",error:"bg-red-600",info:"bg-orange-600",warning:"bg-amber-600"};
   return (<div className={`fixed top-4 left-4 right-4 z-50 ${c[type]||c.info} rounded-xl px-5 py-4 shadow-2xl flex items-center gap-3 slide-up text-white`}>
     {type==="success"?<CheckIcon size={24}/>:type==="error"?<XIcon size={24}/>:<AlertIcon size={24}/>}
     <span className="font-bold text-base flex-1">{msg}</span>
@@ -246,7 +247,7 @@ function sampleOrders() {
 const DashboardView = memo(function DashboardView({txns,queue,awaiting,inStock,depleted,urgentCount,barcodes,admin,pendingCount}) {
   const kpis=[
     {label:"Awaiting Receipt",val:awaiting,color:"text-amber-600 dark:text-amber-400",bar:"bg-amber-500"},
-    {label:"Need Stocking",val:queue.length,color:urgentCount>0?"text-red-600 dark:text-red-400":"text-violet-600 dark:text-violet-400",bar:urgentCount>0?"bg-red-500 pulse-glow":"bg-violet-500"},
+    {label:"Need Stocking",val:queue.length,color:urgentCount>0?"text-red-600 dark:text-red-400":"text-orange-600 dark:text-orange-400",bar:urgentCount>0?"bg-red-500 pulse-glow":"bg-orange-500"},
     {label:"In Stock",val:inStock,color:"text-emerald-600 dark:text-emerald-400",bar:"bg-emerald-500"},
     {label:"Depleted",val:depleted,color:"text-slate-500 dark:text-slate-400",bar:"bg-slate-400 dark:bg-slate-600"},
   ];
@@ -269,7 +270,7 @@ const DashboardView = memo(function DashboardView({txns,queue,awaiting,inStock,d
       </div>))}
     </div>
     :<div className="rounded-xl p-4 border flex items-center gap-4" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
-      <div className={`text-4xl font-bold font-mono ${urgentCount>0?"text-red-600 dark:text-red-400":"text-violet-600 dark:text-violet-400"}`}>{queue.length}</div>
+      <div className={`text-4xl font-bold font-mono ${urgentCount>0?"text-red-600 dark:text-red-400":"text-orange-600 dark:text-orange-400"}`}>{queue.length}</div>
       <div><div className="text-sm font-bold" style={{color:"var(--text-primary)"}}>Items to Stock</div><div className="text-xs" style={{color:"var(--text-muted)"}}>Check queue below — tap Stock tab to begin</div></div>
     </div>}
     {queue.length>0&&<div>
@@ -289,7 +290,7 @@ const DashboardView = memo(function DashboardView({txns,queue,awaiting,inStock,d
     <div>
       <h2 className="text-sm font-bold uppercase tracking-wider mb-3" style={{color:"var(--text-secondary)"}}>Recent Activity</h2>
       <div className="space-y-1.5">{txns.slice(-15).reverse().map(t=>(<div key={t.id} className="rounded-lg px-3 py-2 flex items-center gap-3 border" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
-        <div className={`w-2 h-2 rounded-full shrink-0 ${t.type==="IN"?"bg-emerald-500":t.type==="LOCATION"?"bg-sky-500":"bg-red-500"}`}/>
+        <div className={`w-2 h-2 rounded-full shrink-0 ${t.type==="IN"?"bg-emerald-500":t.type==="LOCATION"?"bg-orange-500":"bg-red-500"}`}/>
         <div className="flex-1 min-w-0">
           <span className="font-mono text-xs" style={{color:"var(--text-secondary)"}}>{t.barcode}</span>
           <span className="mx-1 opacity-30">•</span>
@@ -323,7 +324,7 @@ function ReceivingForm({barcodes,onSubmit,scannerMode}) {
 
   const lookup=useCallback(bc=>{
     const b=barcodes.find(x=>x.barcodeId===bc);
-    if(!b){setError("Barcode not found");setLooked(null);return;}
+    if(!b){setError("QR Code not found");setLooked(null);return;}
     if(b.status!=="AWAITING"){setError(`Already ${b.status}`);setLooked(null);return;}
     setLooked(b);setError("");
   },[barcodes]);
@@ -344,12 +345,12 @@ function ReceivingForm({barcodes,onSubmit,scannerMode}) {
 
   return (<div className="p-4">
     <div className="flex items-center gap-2 mb-4"><ClipboardIcon size={20} className="text-amber-500"/><h1 className="text-lg font-bold">Receiving Inspection</h1></div>
-    <ScanInput label="Scan Barcode on Pallet" value={barcode} onChange={setBarcode} onSubmit={scan} placeholder="PLT-00001" autoFocus IconEl={ScanIcon} scannerMode={scannerMode}/>
+    <ScanInput label="Scan QR Code on Pallet" value={barcode} onChange={setBarcode} onSubmit={scan} placeholder="PLT-00001" autoFocus IconEl={ScanIcon} scannerMode={scannerMode}/>
     {error&&<div className="bg-red-50 dark:bg-red-950 border border-red-300 dark:border-red-700 rounded-lg p-3 mb-3 text-red-700 dark:text-red-300 text-sm font-bold">{error}</div>}
     {looked&&<div className="rounded-xl p-4 mb-4 slide-up border" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
       <div className="grid grid-cols-2 gap-2">
         <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Part No</span><p className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{looked.partNo}</p></div>
-        <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>PO Number</span><p className="font-mono font-bold text-sky-600 dark:text-sky-400">{looked.poNumber}</p></div>
+        <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>PO Number</span><p className="font-mono font-bold text-orange-600 dark:text-orange-400">{looked.poNumber}</p></div>
         <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Lot</span><p className="font-mono" style={{color:"var(--text-secondary)"}}>{looked.lotNo||"—"}</p></div>
         <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Status</span><p className="font-bold text-amber-600 dark:text-amber-400">{looked.status}</p></div>
       </div>
@@ -391,8 +392,8 @@ function StockroomForm({queue,onSubmit,scannerMode}) {
   const ok=sel&&loc.trim()&&op.trim();
 
   return (<div className="p-4">
-    <div className="flex items-center gap-2 mb-4"><WarehouseIcon size={20} className="text-violet-500"/><h1 className="text-lg font-bold">Stockroom Stocking</h1>
-      {queue.length>0&&<span className="ml-auto bg-violet-600 text-white text-xs font-bold px-2 py-1 rounded-full">{queue.length}</span>}
+    <div className="flex items-center gap-2 mb-4"><WarehouseIcon size={20} className="text-orange-500"/><h1 className="text-lg font-bold">Stockroom Stocking</h1>
+      {queue.length>0&&<span className="ml-auto bg-orange-600 text-white text-xs font-bold px-2 py-1 rounded-full">{queue.length}</span>}
     </div>
     {!sel?(<div>
       {queue.length===0?(<div className="text-center py-16"><CheckIcon size={48} className="mx-auto mb-3 text-emerald-500 opacity-50"/><p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">Staging clear</p><p className="text-sm mt-1" style={{color:"var(--text-muted)"}}>Nothing to stock</p></div>)
@@ -406,7 +407,7 @@ function StockroomForm({queue,onSubmit,scannerMode}) {
           </div></button>))}
       </div>)}
     </div>):(<div className="slide-up">
-      <button onClick={reset} className="text-sky-500 text-sm mb-3">← Back to queue</button>
+      <button onClick={reset} className="text-orange-500 text-sm mb-3">← Back to queue</button>
       <div className="rounded-xl p-4 mb-4 border" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
         <div className="grid grid-cols-2 gap-2">
           <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Barcode</span><p className="font-mono font-bold" style={{color:"var(--text-primary)"}}>{sel.barcodeId}</p></div>
@@ -415,11 +416,11 @@ function StockroomForm({queue,onSubmit,scannerMode}) {
           <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>QA</span><p className={`font-bold ${sel.qaStatus==="PASS"?"text-emerald-600 dark:text-emerald-400":sel.qaStatus==="HOLD"?"text-amber-600 dark:text-amber-400":"text-red-600 dark:text-red-400"}`}>{sel.qaStatus||"—"}</p></div>
         </div>
       </div>
-      <ScanInput label="Scan Location Barcode" value={loc} onChange={setLoc} placeholder="RACK-A1-01" autoFocus IconEl={MapPinIcon} scannerMode={scannerMode}/>
+      <ScanInput label="Scan Location" value={loc} onChange={setLoc} placeholder="RACK-A1-01" autoFocus IconEl={MapPinIcon} scannerMode={scannerMode}/>
       <ScanInput label="Operator Badge" value={op} onChange={setOp} placeholder="Scan badge" IconEl={ScanIcon} scannerMode={scannerMode}/>
       <ScanInput label="Notes (optional)" value={notes} onChange={setNotes} placeholder="Comments..."/>
       <button onClick={()=>{if(ok){onSubmit({barcode:sel.barcodeId,partNo:sel.partNo,location:loc.trim(),operator:op.trim(),notes});reset();}}}
-        disabled={!ok} className={`w-full py-4 rounded-xl font-bold text-xl tracking-wide transition-all mt-4 ${ok?"bg-violet-600 hover:bg-violet-500 text-white shadow-lg active:scale-95":"opacity-50 cursor-not-allowed"}`}
+        disabled={!ok} className={`w-full py-4 rounded-xl font-bold text-xl tracking-wide transition-all mt-4 ${ok?"bg-orange-600 hover:bg-orange-500 text-white shadow-lg active:scale-95":"opacity-50 cursor-not-allowed"}`}
         style={!ok?{background:"var(--input-bg)",color:"var(--text-muted)"}:{}}>
         STOCK THIS ITEM
       </button>
@@ -452,10 +453,10 @@ function IssuingForm({barcodes,inventoryByPart,onSubmit,scannerMode}) {
     {!selPart?(<div>
       <div className="relative mb-3"><SearchIcon size={18} className="absolute left-3 top-1/2 -translate-y-1/2" style={{color:"var(--text-muted)"}}/>
         <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search part number..."
-          className="w-full py-3 pl-10 pr-4 rounded-lg border-2 focus:border-sky-500 outline-none font-mono"
+          className="w-full py-3 pl-10 pr-4 rounded-lg border-2 focus:border-orange-500 outline-none font-mono"
           style={{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--input-border)"}}/></div>
       <div className="space-y-2">{parts.map(p=>(<button key={p.partNo} onClick={()=>setSelPart(p)}
-        className="w-full text-left rounded-xl p-4 border active:border-sky-500 transition-all" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
+        className="w-full text-left rounded-xl p-4 border active:border-orange-500 transition-all" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
         <div className="flex items-center justify-between">
           <div><div className="font-mono font-bold" style={{color:"var(--text-primary)"}}>{p.partNo}</div><div className="text-xs" style={{color:"var(--text-muted)"}}>{p.barcodes.length} barcodes • {[...p.locations].join(", ")||"—"}</div></div>
           <div className="text-right"><div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">{p.totalQty}</div><div className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Avail</div></div>
@@ -463,7 +464,7 @@ function IssuingForm({barcodes,inventoryByPart,onSubmit,scannerMode}) {
         {parts.length===0&&<p className="text-center py-8 text-sm" style={{color:"var(--text-muted)"}}>{search?"No match":"Search for a part"}</p>}
       </div>
     </div>):!selBc?(<div className="slide-up">
-      <button onClick={()=>setSelPart(null)} className="text-sky-500 text-sm mb-3">← Back</button>
+      <button onClick={()=>setSelPart(null)} className="text-orange-500 text-sm mb-3">← Back</button>
       <div className="rounded-xl p-3 mb-3 border" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
         <span className="font-mono font-bold" style={{color:"var(--text-primary)"}}>{selPart.partNo}</span><span className="text-emerald-600 dark:text-emerald-400 ml-2">({selPart.totalQty} avail)</span></div>
       <p className="text-xs mb-2" style={{color:"var(--text-muted)"}}>FIFO pick order (oldest first):</p>
@@ -476,12 +477,12 @@ function IssuingForm({barcodes,inventoryByPart,onSubmit,scannerMode}) {
           <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">{b.currentQty}</div>
         </div></button>))}</div>
     </div>):(<div className="slide-up">
-      <button onClick={()=>setSelBc(null)} className="text-sky-500 text-sm mb-3">← Back</button>
+      <button onClick={()=>setSelBc(null)} className="text-orange-500 text-sm mb-3">← Back</button>
       <div className="rounded-xl p-4 mb-4 border" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
         <div className="grid grid-cols-2 gap-2">
           <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Barcode</span><p className="font-mono font-bold" style={{color:"var(--text-primary)"}}>{selBc.barcodeId}</p></div>
           <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Part</span><p className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{selBc.partNo}</p></div>
-          <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Location</span><p className="font-bold text-sky-600 dark:text-sky-400">{selBc.location||"—"}</p></div>
+          <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Location</span><p className="font-bold text-orange-600 dark:text-orange-400">{selBc.location||"—"}</p></div>
           <div><span className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Available</span><p className="font-bold" style={{color:"var(--text-primary)"}}>{selBc.currentQty}</p></div>
         </div></div>
       <ScanInput label="Scan Work Order" value={wo} onChange={setWo} placeholder="WO-2026-00001" autoFocus IconEl={ScanIcon} scannerMode={scannerMode}/>
@@ -505,21 +506,21 @@ const InventoryView = memo(function InventoryView({inventoryByPart,barcodes}) {
   const [exp,setExp]=useState(null);
   const all=Object.values(inventoryByPart).filter(p=>p.partNo.toLowerCase().includes(search.toLowerCase()));
   return (<div className="p-4">
-    <div className="flex items-center gap-2 mb-2"><PackageIcon size={20} className="text-sky-500"/><h1 className="text-lg font-bold">Inventory</h1>
+    <div className="flex items-center gap-2 mb-2"><PackageIcon size={20} className="text-orange-500"/><h1 className="text-lg font-bold">Inventory</h1>
       <span className="ml-auto text-xs" style={{color:"var(--text-muted)"}}>{all.length} parts • {all.reduce((s,p)=>s+p.totalQty,0)} qty</span></div>
     <div className="relative mb-3"><SearchIcon size={18} className="absolute left-3 top-1/2 -translate-y-1/2" style={{color:"var(--text-muted)"}}/>
       <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..."
-        className="w-full py-2.5 pl-10 pr-4 rounded-lg border focus:border-sky-500 outline-none font-mono text-sm"
+        className="w-full py-2.5 pl-10 pr-4 rounded-lg border focus:border-orange-500 outline-none font-mono text-sm"
         style={{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--input-border)"}}/></div>
     <div className="space-y-1.5">{all.map(p=>(<div key={p.partNo}>
-      <button onClick={()=>setExp(exp===p.partNo?null:p.partNo)} className="w-full text-left rounded-lg px-3 py-2.5 border active:border-sky-500" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
+      <button onClick={()=>setExp(exp===p.partNo?null:p.partNo)} className="w-full text-left rounded-lg px-3 py-2.5 border active:border-orange-500" style={{background:"var(--bg-card)",borderColor:"var(--border)"}}>
         <div className="flex items-center justify-between"><div><span className="font-mono font-bold text-sm" style={{color:"var(--text-primary)"}}>{p.partNo}</span>
           <span className="text-xs ml-2" style={{color:"var(--text-muted)"}}>{[...p.locations].join(", ")}</span></div>
           <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{p.totalQty}</span></div></button>
       {exp===p.partNo&&<div className="rounded-b-lg px-3 py-2 border-x border-b space-y-1 slide-up" style={{background:"var(--bg-secondary)",borderColor:"var(--border)"}}>
         {p.barcodes.map(b=>(<div key={b.barcodeId} className="flex items-center justify-between text-xs">
           <span className="font-mono" style={{color:"var(--text-secondary)"}}>{b.barcodeId}</span>
-          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${b.status==="IN STOCK"?"bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-400":b.status==="RECEIVED"?"bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-400":"bg-slate-200 dark:bg-slate-700 text-slate-500"}`}>{b.status}</span>
+          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${b.status==="IN STOCK"?"bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-400":b.status==="RECEIVED"?"bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-400":"bg-slate-200 dark:bg-slate-700 text-slate-500"}`}>{b.status}</span>
           <span style={{color:"var(--text-muted)"}}>{b.location||"—"}</span>
           <span className="font-mono font-bold" style={{color:"var(--text-primary)"}}>{b.currentQty}</span>
         </div>))}</div>}
@@ -537,9 +538,7 @@ function SettingsView({config,setConfig,onSync,syncing,setToast,setBarcodes,setO
   const [apiKey,setApiKey]=useState(config.apiKey||"");
   const [testing,setTesting]=useState(false);
   const [showOo,setShowOo]=useState(false);
-  const [showBc,setShowBc]=useState(false);
   const [nOo,setNOo]=useState({poNumber:"",vendor:"",partNo:"",lotNo:"",qtyOrdered:""});
-  const [nBc,setNBc]=useState({partNo:"",poNumber:"",lotNo:""});
   const [newPin,setNewPin]=useState("");
 
   const testConn=async()=>{
@@ -570,7 +569,7 @@ function SettingsView({config,setConfig,onSync,syncing,setToast,setBarcodes,setO
           {dark?<MoonIcon size={16}/>:<SunIcon size={16}/>} {dark?"Dark Mode":"Light Mode"}
         </button>
         <button onClick={()=>{const v=!scannerMode;setScannerMode(v);lsSet("inv-scanner",v);setToast({msg:v?"Scanner mode ON — keyboard hidden":"Scanner mode OFF",type:"info"});}}
-          className={`flex-1 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 border ${scannerMode?"bg-sky-600 text-white border-sky-500":"border"}`}
+          className={`flex-1 py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 border ${scannerMode?"bg-orange-600 text-white border-orange-500":"border"}`}
           style={!scannerMode?{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--border)"}:{}}>
           <ScanIcon size={16}/> {scannerMode?"Scanner: ON":"Scanner: OFF"}
         </button>
@@ -583,7 +582,7 @@ function SettingsView({config,setConfig,onSync,syncing,setToast,setBarcodes,setO
       <ScanInput label="API Key (optional)" value={apiKey} onChange={setApiKey} placeholder="Shared secret for authentication"/>
       <div className="flex gap-2">
         <button onClick={()=>{setConfig(p=>({...p,appsScriptUrl:url.trim(),apiKey:apiKey.trim()}));setToast({msg:"Saved",type:"success"});}} className="flex-1 py-2.5 rounded-lg text-sm font-bold border" style={{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--border)"}}>Save</button>
-        <button onClick={testConn} disabled={testing} className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2">
+        <button onClick={testConn} disabled={testing} className="flex-1 py-2.5 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2">
           {testing?<RefreshIcon size={16} className="animate-spin"/>:<WifiIcon size={16}/>} Test</button>
         <button onClick={onSync} disabled={syncing} className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2">
           {syncing?<RefreshIcon size={16} className="animate-spin"/>:<RefreshIcon size={16}/>} Sync</button>
@@ -592,14 +591,10 @@ function SettingsView({config,setConfig,onSync,syncing,setToast,setBarcodes,setO
     </section>}
 
     {admin&&<section className="rounded-xl p-4 border" style={sectionStyle}>
-      <h2 className="text-sm font-bold uppercase tracking-wider mb-3" style={{color:"var(--text-secondary)"}}>Add PO / Barcode</h2>
-      <div className="flex gap-2 mb-3">
-        <button onClick={()=>{setShowOo(!showOo);setShowBc(false);}} className={`flex-1 py-2.5 rounded-lg text-sm font-bold ${showOo?"bg-amber-600 text-white":"border"}`}
-          style={!showOo?{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--border)"}:{}}>+ Open Order</button>
-        <button onClick={()=>{setShowBc(!showBc);setShowOo(false);}} className={`flex-1 py-2.5 rounded-lg text-sm font-bold ${showBc?"bg-violet-600 text-white":"border"}`}
-          style={!showBc?{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--border)"}:{}}>+ Barcode</button>
-      </div>
-      {showOo&&<div className="space-y-2 border-t pt-3 slide-up" style={{borderColor:"var(--border)"}}>
+      <h2 className="text-sm font-bold uppercase tracking-wider mb-3" style={{color:"var(--text-secondary)"}}>Register PO</h2>
+      <button onClick={()=>setShowOo(!showOo)} className={`w-full py-2.5 rounded-lg text-sm font-bold ${showOo?"bg-amber-600 text-white":"border"}`}
+        style={!showOo?{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--border)"}:{}}>{showOo?"Cancel":"+ New PO"}</button>
+      {showOo&&<div className="space-y-2 border-t pt-3 mt-3 slide-up" style={{borderColor:"var(--border)"}}>
         <ScanInput label="PO Number" value={nOo.poNumber} onChange={v=>setNOo(p=>({...p,poNumber:v}))} placeholder="AF12345"/>
         <ScanInput label="Vendor" value={nOo.vendor} onChange={v=>setNOo(p=>({...p,vendor:v}))} placeholder="Vendor"/>
         <ScanInput label="Part No" value={nOo.partNo} onChange={v=>setNOo(p=>({...p,partNo:v}))} placeholder="Part number"/>
@@ -608,36 +603,23 @@ function SettingsView({config,setConfig,onSync,syncing,setToast,setBarcodes,setO
         <button onClick={()=>{if(!nOo.poNumber||!nOo.partNo||!nOo.qtyOrdered)return;
           const id=genUUID("PLT-");
           const seq=barcodes.length+1;
-          // BUG1: Only add order row if PO is new (multi-pallet: same PO, new barcode)
+          // BUG1: Only add order row if PO is new (multi-pallet: same PO, new QR)
           const existingPO=orders.find(o=>o.poNumber===nOo.poNumber);
           if(!existingPO) setOrders(p=>[...p,{...nOo,qtyOrdered:Number(nOo.qtyOrdered),qtyReceived:0,status:"AWAITING"}]);
           setBarcodes(p=>[...p,{barcodeId:id,seq,partNo:nOo.partNo,poNumber:nOo.poNumber,lotNo:nOo.lotNo,status:"AWAITING",qaStatus:"",qtyReceived:0,location:"",receivedDate:null,stockedDate:null,currentQty:0}]);
           postToSheet("register",{barcode:id,poNumber:nOo.poNumber,vendor:nOo.vendor,partNo:nOo.partNo,lotNo:nOo.lotNo,qtyOrdered:nOo.qtyOrdered});
           const pallets=barcodes.filter(b=>b.poNumber===nOo.poNumber).length+1;
           setNOo({poNumber:"",vendor:"",partNo:"",lotNo:"",qtyOrdered:""});setShowOo(false);
-          setToast({msg:existingPO?`Pallet ${pallets} → ${id} added to PO ${nOo.poNumber}`:`PO ${nOo.poNumber} + ${id} → registered`,type:"success"});}}
-          className="w-full py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-bold">REGISTER PO + BARCODE</button>
-      </div>}
-      {showBc&&<div className="space-y-2 border-t pt-3 slide-up" style={{borderColor:"var(--border)"}}>
-        <ScanInput label="Part No" value={nBc.partNo} onChange={v=>setNBc(p=>({...p,partNo:v}))} placeholder="Part number"/>
-        <ScanInput label="PO Number" value={nBc.poNumber} onChange={v=>setNBc(p=>({...p,poNumber:v}))} placeholder="AF12345"/>
-        <ScanInput label="Lot No" value={nBc.lotNo} onChange={v=>setNBc(p=>({...p,lotNo:v}))} placeholder="LOT-2026-001"/>
-        <button onClick={()=>{if(!nBc.partNo||!nBc.poNumber)return;
-          const id=genUUID("PLT-");
-          const seq=barcodes.length+1;
-          setBarcodes(p=>[...p,{barcodeId:id,seq,partNo:nBc.partNo,poNumber:nBc.poNumber,lotNo:nBc.lotNo,status:"AWAITING",qaStatus:"",qtyReceived:0,location:"",receivedDate:null,stockedDate:null,currentQty:0}]);
-          postToSheet("register",{barcode:id,poNumber:nBc.poNumber,vendor:"",partNo:nBc.partNo,lotNo:nBc.lotNo,qtyOrdered:0});
-          setNBc({partNo:"",poNumber:"",lotNo:""});setShowBc(false);
-          setToast({msg:`Barcode ${id} → registered`,type:"success"});}}
-          className="w-full py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-lg font-bold">REGISTER BARCODE</button>
+          setToast({msg:existingPO?`Pallet ${pallets} → ${id} added to PO ${nOo.poNumber}`:`PO ${nOo.poNumber} → QR ${id} registered`,type:"success"});}}
+          className="w-full py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-bold">REGISTER PO + QR CODE</button>
       </div>}
     </section>}
 
     {admin&&<section className="rounded-xl p-4 border" style={sectionStyle}>
       <h2 className="text-sm font-bold uppercase tracking-wider mb-3" style={{color:"var(--text-secondary)"}}>Data</h2>
       <div className="grid grid-cols-3 gap-3 text-center mb-4">
-        <div><div className="text-2xl font-bold font-mono text-sky-600 dark:text-sky-400">{orders.length}</div><div className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Orders</div></div>
-        <div><div className="text-2xl font-bold font-mono text-violet-600 dark:text-violet-400">{barcodes.length}</div><div className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Barcodes</div></div>
+        <div><div className="text-2xl font-bold font-mono text-orange-600 dark:text-orange-400">{orders.length}</div><div className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Orders</div></div>
+        <div><div className="text-2xl font-bold font-mono text-orange-600 dark:text-orange-400">{barcodes.length}</div><div className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>QR Codes</div></div>
         <div><div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400">{lsGet("inv-txns")?.length||0}</div><div className="text-[10px] uppercase" style={{color:"var(--text-muted)"}}>Txns</div></div>
       </div>
       <div className="flex gap-2">
@@ -666,7 +648,7 @@ function SettingsView({config,setConfig,onSync,syncing,setToast,setBarcodes,setO
                 </div>
                 <div className="flex gap-2 mt-2">
                   <button onClick={()=>{pushQueue({form:d.form,data:d.data});const nd=[...dead];nd.splice(i,1);setDeadLetter(nd);setPendingCount(getQueue().length);setToast({msg:"Re-queued for retry",type:"info"});}}
-                    className="text-xs py-1 px-3 rounded bg-sky-600 text-white font-bold">Retry</button>
+                    className="text-xs py-1 px-3 rounded bg-orange-600 text-white font-bold">Retry</button>
                   <button onClick={()=>{const nd=[...dead];nd.splice(i,1);setDeadLetter(nd);setToast({msg:"Discarded",type:"warning"});}}
                     className="text-xs py-1 px-3 rounded bg-red-600 text-white font-bold">Discard</button>
                 </div>
@@ -684,10 +666,10 @@ function SettingsView({config,setConfig,onSync,syncing,setToast,setBarcodes,setO
       <p className="text-xs mb-2" style={{color:"var(--text-muted)"}}>Current PIN: {(config.adminPin||"1234").replace(/./g,"•")} — change below</p>
       <div className="flex gap-2">
         <input type="text" inputMode="numeric" maxLength={8} value={newPin} onChange={e=>setNewPin(e.target.value)} placeholder="New PIN"
-          className="flex-1 py-2.5 px-4 rounded-lg border focus:border-sky-500 outline-none font-mono text-center text-lg tracking-widest"
+          className="flex-1 py-2.5 px-4 rounded-lg border focus:border-orange-500 outline-none font-mono text-center text-lg tracking-widest"
           style={{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--input-border)"}}/>
         <button onClick={()=>{if(newPin.length>=4){setConfig(p=>({...p,adminPin:newPin}));setNewPin("");setToast({msg:"PIN changed",type:"success"});}else setToast({msg:"PIN must be 4+ digits",type:"error"});}}
-          className="py-2.5 px-6 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm font-bold">Save</button>
+          className="py-2.5 px-6 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-sm font-bold">Save</button>
       </div>
     </section>}
 
@@ -875,7 +857,7 @@ function App() {
             qaStatus: t.qaStatus, notes: t.notes,
           })));
         }
-        setToast({msg:`Synced: ${d.openOrders?.length||0} orders, ${d.barcodes?.length||0} barcodes, ${d.transactions?.length||0} txns`,type:"success"});
+        setToast({msg:`Synced: ${d.openOrders?.length||0} orders, ${d.barcodes?.length||0} QR codes, ${d.transactions?.length||0} txns`,type:"success"});
       } else setToast({msg:"Sync failed: "+(d.error||"unknown"),type:"error"});
     }catch(err){setToast({msg:"Connection failed: "+err.message,type:"error"});}
     setSyncing(false);
@@ -935,7 +917,7 @@ function App() {
   };
   const lockOut=()=>{setAdmin(false);lsSet("inv-admin",null);if(view==="inventory")setView("dashboard");setToast({msg:"Locked",type:"info"});};
 
-  if(loading)return <div className="min-h-screen flex items-center justify-center" style={{background:"var(--bg-primary)"}}><RefreshIcon size={48} className="animate-spin text-sky-500"/></div>;
+  if(loading)return <div className="min-h-screen flex items-center justify-center" style={{background:"var(--bg-primary)"}}><RefreshIcon size={48} className="animate-spin text-orange-500"/></div>;
 
   const tabs=[
     {id:"dashboard",label:"Dash",Ic:ChartIcon,badge:urgentCount>0?urgentCount:null},
@@ -951,25 +933,25 @@ function App() {
 
     {showPin&&<div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={()=>{setShowPin(false);setPin("");}}>
       <div className="rounded-2xl p-6 w-full max-w-xs border" style={{background:"var(--bg-card)",borderColor:"var(--border)"}} onClick={e=>e.stopPropagation()}>
-        <div className="text-center mb-4"><LockIcon size={32} className="mx-auto text-sky-500 mb-2"/><h2 className="font-bold text-lg">Admin PIN</h2>
+        <div className="text-center mb-4"><LockIcon size={32} className="mx-auto text-orange-500 mb-2"/><h2 className="font-bold text-lg">Admin PIN</h2>
           <p className="text-xs mt-1" style={{color:"var(--text-muted)"}}>Default: 1234 — change in Setup</p></div>
         <input type="password" inputMode="numeric" maxLength={8} value={pin} onChange={e=>setPin(e.target.value)}
           onKeyDown={e=>{if(e.key==="Enter")verifyPin();}}
-          autoFocus className="w-full py-4 px-4 rounded-xl text-3xl font-mono text-center tracking-[0.5em] border-2 focus:border-sky-500 outline-none"
+          autoFocus className="w-full py-4 px-4 rounded-xl text-3xl font-mono text-center tracking-[0.5em] border-2 focus:border-orange-500 outline-none"
           style={{background:"var(--input-bg)",color:"var(--text-primary)",borderColor:"var(--input-border)"}}/>
-        <button onClick={verifyPin} className="w-full py-3 mt-4 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold text-lg">UNLOCK</button>
+        <button onClick={verifyPin} className="w-full py-3 mt-4 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-bold text-lg">UNLOCK</button>
         <button onClick={()=>{setShowPin(false);setPin("");}} className="w-full py-2 mt-2 text-sm" style={{color:"var(--text-muted)"}}>Cancel</button>
       </div>
     </div>}
 
     <header className="border-b px-4 py-3 flex items-center justify-between shrink-0" style={{background:"var(--header-bg)",borderColor:"var(--border)"}}>
-      <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-lg bg-sky-600 flex items-center justify-center text-white"><PackageIcon size={18}/></div>
+      <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center text-white"><PackageIcon size={18}/></div>
         <span className="font-bold text-sm tracking-wide">INVENTORY</span></div>
       <div className="flex items-center gap-3">
         {!online&&<span className="text-xs font-bold text-red-500 bg-red-50 dark:bg-red-950 px-2 py-1 rounded border border-red-300 dark:border-red-700">OFFLINE</span>}
         {pendingCount>0&&<span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 px-2 py-1 rounded border border-amber-300 dark:border-amber-700">{pendingCount}↑</span>}
         {online&&config.appsScriptUrl?<WifiIcon size={16} className="text-emerald-500"/>:<WifiOffIcon size={16} style={{color:"var(--text-muted)"}}/>}
-        <button onClick={()=>{if(admin)lockOut();else setShowPin(true);}} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all border ${admin?"bg-sky-50 dark:bg-sky-900 text-sky-600 dark:text-sky-400 border-sky-300 dark:border-sky-700":""}`}
+        <button onClick={()=>{if(admin)lockOut();else setShowPin(true);}} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all border ${admin?"bg-orange-50 dark:bg-orange-900 text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-700":""}`}
           style={!admin?{background:"var(--input-bg)",color:"var(--text-muted)",borderColor:"var(--border)"}:{}}>
           {admin?<><UnlockIcon size={14}/> Admin</>:<><LockIcon size={14}/> Lock</>}
         </button>
@@ -985,7 +967,7 @@ function App() {
     </main>
     <nav className="fixed bottom-0 left-0 right-0 border-t flex justify-around py-1 z-40" style={{background:"var(--nav-bg)",borderColor:"var(--border)"}}>
       {tabs.map(t=>(<button key={t.id} onClick={()=>setView(t.id)}
-        className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-all relative ${view===t.id?"text-sky-500":""}`}
+        className={`flex flex-col items-center py-1.5 px-2 rounded-lg transition-all relative ${view===t.id?"text-orange-500":""}`}
         style={view!==t.id?{color:"var(--text-muted)"}:{}}>
         <t.Ic size={20}/><span className="text-[10px] mt-0.5 font-medium">{t.label}</span>
         {t.badge&&<span className="absolute -top-0.5 right-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1">{t.badge}</span>}
